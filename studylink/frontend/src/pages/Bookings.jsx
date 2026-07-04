@@ -99,6 +99,13 @@ export default function Bookings() {
                 </span>
                 <span className="text-sm font-semibold text-ink">{b.price}€</span>
 
+                <Link
+                  to="/materials"
+                  className="rounded-lg border border-black/10 px-4 py-2 text-xs font-medium text-ink/70 transition hover:bg-black/5"
+                >
+                  Matériel
+                </Link>
+
                 {b.status === 'confirmed' && !isPast && (
                   <>
                     <Link

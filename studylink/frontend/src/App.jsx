@@ -6,6 +6,8 @@ import Register from './pages/Register.jsx';
 import SearchTutors from './pages/SearchTutors.jsx';
 import TutorProfile from './pages/TutorProfile.jsx';
 import Bookings from './pages/Bookings.jsx';
+import Materials from './pages/Materials.jsx';
+import Messages from './pages/Messages.jsx';
 import Session from './pages/Session.jsx';
 import Profile from './pages/Profile.jsx';
 
@@ -20,6 +22,8 @@ export default function App() {
         <Route path="/search" element={<SearchTutors />} />
         <Route path="/tutors/:id" element={<TutorProfile />} />
         <Route path="/bookings" element={<Bookings />} />
+        <Route path="/materials" element={<Materials />} />
+        <Route path="/messages" element={<Messages />} />
         <Route path="/session/:id" element={<Session />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<div className="px-6 py-24 text-center text-ink/50">Page introuvable.</div>} />

@@ -15,11 +15,11 @@ studylink/
 │       ├── db.js          Connexion PostgreSQL
 │       ├── seed.js        Données de démonstration
 │       ├── middleware/     Authentification JWT
-│       └── routes/         auth, tutors, bookings, subjects, reviews
+│       └── routes/         auth, tutors, bookings, subjects, reviews, materials
 └── frontend/         Application React (Vite + Tailwind CSS)
     └── src/
         ├── pages/          Home, Login, Register, SearchTutors, TutorProfile,
-        │                   Bookings, Session (visio), Profile
+        │                   Bookings, Materials, Session (visio), Profile
         ├── components/     Navbar, TutorCard, CalendarPicker
         └── context/        AuthContext (gestion du token JWT)
 ```
@@ -40,6 +40,9 @@ cp .env.example .env
 
 # Crée les tables
 psql "$DATABASE_URL" -f migrations/schema.sql
+
+# Si ta base existait déjà avant l'ajout de la messagerie, lance aussi une fois :
+# psql "$DATABASE_URL" -f migrations/002_add_messages.sql
 
 # Peuple avec des données de démo (4 tuteurs, 1 élève, mot de passe: password123)
 npm run seed
@@ -103,6 +106,8 @@ VITE_API_URL=https://ton-backend.onrender.com/api
 - ✅ Réservation transactionnelle (empêche les doubles réservations grâce à un verrou SQL)
 - ✅ Liste "Mes réservations" avec annulation
 - ✅ Interface de session visio (mute, caméra, chat, partage d'écran — UI complète)
+- ✅ Matériel de session (partage de documents/liens par réservation, accessible depuis Réservations, Session et la barre de navigation)
+- ✅ Messagerie directe entre élève et tuteur (dès qu'une réservation existe), avec badge de notification non-lus dans la navbar
 - ✅ Gestion de profil tuteur (édition + ajout de créneaux)
 - ✅ Système d'avis (note + commentaire après une session)
 

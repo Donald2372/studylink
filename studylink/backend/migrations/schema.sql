@@ -85,6 +85,21 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ---------- MESSAGES ----------
+-- Messagerie directe entre deux utilisateurs qui ont un contact (via une réservation)
+CREATE TABLE IF NOT EXISTS messages (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content         TEXT NOT NULL,
+    read_at         TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT no_self_message CHECK (sender_id <> recipient_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, read_at);
+CREATE INDEX IF NOT EXISTS idx_messages_pair ON messages(sender_id, recipient_id, created_at);
+
 -- ---------- SESSION MATERIALS ----------
 CREATE TABLE IF NOT EXISTS session_materials (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

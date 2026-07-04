@@ -116,6 +116,12 @@ export default function Session() {
           Partager l'écran
         </button>
         <Link
+          to="/materials"
+          className="rounded-lg bg-black/5 px-4 py-2 text-sm font-medium text-ink transition hover:bg-black/10"
+        >
+          Matériel
+        </Link>
+        <Link
           to="/bookings"
           className="rounded-lg bg-coral-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-coral-600"
         >

@@ -7,6 +7,8 @@ import tutorRoutes from './routes/tutors.js';
 import bookingRoutes from './routes/bookings.js';
 import subjectRoutes from './routes/subjects.js';
 import reviewRoutes from './routes/reviews.js';
+import materialRoutes from './routes/materials.js';
+import messageRoutes from './routes/messages.js';
 import { requireAuth } from './middleware/auth.js';
 
 dotenv.config();
@@ -28,6 +30,8 @@ app.use('/api/subjects', subjectRoutes);
 // Routes protégées (token JWT requis)
 app.use('/api/bookings', requireAuth, bookingRoutes);
 app.use('/api/reviews', requireAuth, reviewRoutes);
+app.use('/api/materials', requireAuth, materialRoutes);
+app.use('/api/messages', requireAuth, messageRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 

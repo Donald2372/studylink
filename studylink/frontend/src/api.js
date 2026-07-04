@@ -41,4 +41,14 @@ export const api = {
   cancelBooking: (id, token) => request(`/bookings/${id}/cancel`, { method: 'PATCH', token }),
 
   addReview: (payload, token) => request('/reviews', { method: 'POST', body: payload, token }),
+
+  getMaterials: (bookingId, token) => request(`/materials/booking/${bookingId}`, { token }),
+  addMaterial: (payload, token) => request('/materials', { method: 'POST', body: payload, token }),
+  deleteMaterial: (id, token) => request(`/materials/${id}`, { method: 'DELETE', token }),
+
+  getContacts: (token) => request('/messages/contacts', { token }),
+  getThread: (userId, token) => request(`/messages/thread/${userId}`, { token }),
+  markThreadRead: (userId, token) => request(`/messages/thread/${userId}/read`, { method: 'PATCH', token }),
+  sendMessage: (payload, token) => request('/messages', { method: 'POST', body: payload, token }),
+  getUnreadCount: (token) => request('/messages/unread-count', { token }),
 };
