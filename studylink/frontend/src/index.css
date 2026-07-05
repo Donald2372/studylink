@@ -31,3 +31,108 @@
 .tutorial-content-text{white-space:pre-wrap;line-height:1.7}
 .tutorial-progress-text{margin-top:18px;color:#1769ff;font-weight:800}
 @media(max-width:900px){.admin-content-card.with-video{grid-template-columns:1fr}.admin-tutorial-video{height:auto;aspect-ratio:16/9}.admin-content-card.with-video>button{grid-column:1}}
+
+/* Public catalogue tutorials loaded from Supabase/API */
+.catalogue-live-label {
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.catalogue-status-card {
+  border: 1px solid #dbe4f0;
+  border-radius: 18px;
+  background: #fff;
+  padding: 22px;
+  color: #64748b;
+}
+
+.public-tutorial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.public-tutorial-card {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 18px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.public-tutorial-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.10);
+}
+
+.public-tutorial-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0f2f6d, #2563eb);
+}
+
+.public-tutorial-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.public-tutorial-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 2.5rem;
+}
+
+.public-tutorial-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  padding-left: 3px;
+  color: #fff;
+  background: rgba(220, 38, 38, .94);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
+}
+
+.public-tutorial-body {
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 5px;
+}
+
+.public-tutorial-body b {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.public-tutorial-body span,
+.public-tutorial-body small {
+  color: #64748b;
+}
+
+@media (max-width: 980px) {
+  .public-tutorial-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .public-tutorial-grid {
+    grid-template-columns: 1fr;
+  }
+}
