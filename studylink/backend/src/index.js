@@ -10,6 +10,7 @@ import reviewRoutes from './routes/reviews.js';
 import materialRoutes from './routes/materials.js';
 import messageRoutes from './routes/messages.js';
 import adminRoutes from './routes/admin.js';
+import contentRoutes from './routes/content.js';
 import { requireAuth } from './middleware/auth.js';
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use('/api/tutors', (req, res, next) => {
   return requireAuth(req, res, next);
 }, tutorRoutes);
 app.use('/api/subjects', subjectRoutes);
+app.use('/api/content', contentRoutes);
 
 // Routes protégées (token JWT requis)
 app.use('/api/bookings', requireAuth, bookingRoutes);

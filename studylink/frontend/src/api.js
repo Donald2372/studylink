@@ -37,6 +37,8 @@ export const api = {
     request(`/tutors/${id}/availability`, { method: 'POST', body: payload, token }),
 
   getSubjects: () => request('/subjects'),
+  getTutorials: () => request('/content/tutorials'),
+  getTutorial: (id) => request(`/content/tutorials/${id}`),
 
   createBooking: (payload, token) => request('/bookings', { method: 'POST', body: payload, token }),
   myBookings: (token) => request('/bookings/me', { token }),

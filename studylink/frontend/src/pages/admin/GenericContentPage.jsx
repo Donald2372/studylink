@@ -9,6 +9,7 @@ const cfg = {
     coverKind: 'tutorial-cover', coverLabel: 'Image de couverture depuis votre ordinateur',
     fields: [
       ['title','Titre'], ['description','Description','textarea'],
+      ['youtube_url','Lien YouTube de la vidéo','url'],
       ['level','Niveau','select','beginner|intermediate|advanced'], ['language','Langue'],
       ['estimated_minutes','Durée (minutes)','number'], ['status','Statut','select','draft|review|published|archived']
     ]
@@ -117,7 +118,20 @@ export default function GenericContentPage({ type }) {
         }
       }
 
-      await api.adminCreate(c.resource, payload, token);
+      const created = await api.adminCreate(c.resource, payload, token);
+
+      // Pour un tutoriel vidéo, on crée automatiquement la première étape.
+      // La vidéo reste hébergée sur YouTube mais devient jouable directement dans StudyLink.
+      if (type === 'tutorials' && payload.youtube_url && created?.tutorial?.id) {
+        await api.adminAddTutorialStep(created.tutorial.id, {
+          title: payload.title || 'Vidéo du tutoriel',
+          content: payload.description || '',
+          youtube_url: payload.youtube_url,
+          estimated_minutes: Number(payload.estimated_minutes) || 0,
+          position: 1,
+        }, token);
+      }
+
       closeModal();
       load();
     } catch (e) {
@@ -137,6 +151,26 @@ export default function GenericContentPage({ type }) {
     }
   }
 
+  async function addYoutubeToTutorial(item) {
+    const url = window.prompt('Collez le lien YouTube complet de la vidéo :');
+    if (!url) return;
+    try {
+      setBusy(true);
+      setErr('');
+      await api.adminAddTutorialStep(item.id, {
+        title: item.title || 'Vidéo du tutoriel',
+        content: item.description || '',
+        youtube_url: url,
+        estimated_minutes: Number(item.estimated_minutes) || 0,
+      }, token);
+      load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!c) return <div className="admin-error">Module administrateur inconnu.</div>;
 
   return (
@@ -151,13 +185,25 @@ export default function GenericContentPage({ type }) {
 
       <div className="admin-content-grid">
         {items.map((x) => (
-          <article className="admin-content-card" key={x.id}>
-            <div className="admin-cover" style={x.cover_url ? { backgroundImage: `url(${x.cover_url})` } : {}}>{!x.cover_url && '◆'}</div>
+          <article className={`admin-content-card ${type === 'tutorials' && x.youtube_video_id ? 'with-video' : ''}`} key={x.id}>
+            {type === 'tutorials' && x.youtube_video_id ? (
+              <iframe
+                className="admin-tutorial-video"
+                src={`https://www.youtube-nocookie.com/embed/${x.youtube_video_id}`}
+                title={x.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <div className="admin-cover" style={x.cover_url ? { backgroundImage: `url(${x.cover_url})` } : {}}>{!x.cover_url && '◆'}</div>
+            )}
             <div>
               <h3>{x.title}</h3>
               <p>{x.description || x.author_name || x.category || 'Aucune description'}</p>
               <Status value={x.status} />
               {x.file_url && <a className="admin-file-link" href={x.file_url} target="_blank" rel="noreferrer">Ouvrir le fichier</a>}
+              {type === 'tutorials' && x.youtube_video_id && <a className="admin-file-link" href={`/tutorials/${x.id}`} target="_blank" rel="noreferrer">Voir le tutoriel dans l’application</a>}
+              {type === 'tutorials' && !x.youtube_video_id && <button className="admin-btn" type="button" disabled={busy} onClick={() => addYoutubeToTutorial(x)}>▶ Ajouter une vidéo YouTube</button>}
             </div>
             <button type="button" onClick={() => del(x.id)}>Supprimer</button>
           </article>
