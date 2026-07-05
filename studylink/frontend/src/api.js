@@ -37,6 +37,13 @@ export const api = {
     request(`/tutors/${id}/availability`, { method: 'POST', body: payload, token }),
 
   getSubjects: () => request('/subjects'),
+  getCourses: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+    ).toString();
+    return request(`/content/courses${qs ? `?${qs}` : ''}`);
+  },
+  getCourse: (id) => request(`/content/courses/${id}`),
   getPublicMaterials: (params = {}) => {
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
@@ -60,6 +67,13 @@ export const api = {
   getThread: (userId, token) => request(`/messages/thread/${userId}`, { token }),
   markThreadRead: (userId, token) => request(`/messages/thread/${userId}/read`, { method: 'PATCH', token }),
   sendMessage: (payload, token) => request('/messages', { method: 'POST', body: payload, token }),
+  sendMessageWithFile: ({ recipientId, content, file }, token) => {
+    const form = new FormData();
+    form.append('recipientId', recipientId);
+    if (content) form.append('content', content);
+    if (file) form.append('file', file);
+    return request('/messages', { method:'POST', body:form, token });
+  },
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
 
   adminDashboard: (token) => request('/admin/dashboard', { token }),
@@ -69,6 +83,7 @@ export const api = {
   adminList: (resource, token) => request(`/admin/${resource}`, { token }),
   adminCreate: (resource, payload, token) => request(`/admin/${resource}`, { method:'POST', body:payload, token }),
   adminUpdateCourse: (id, payload, token) => request(`/admin/courses/${id}`, { method:'PUT', body:payload, token }),
+  adminSetCourseStatus: (id, status, token) => request(`/admin/courses/${id}/status`, { method:'PATCH', body:{status}, token }),
   adminDelete: (resource, id, token) => request(`/admin/${resource}/${id}`, { method:'DELETE', token }),
   adminCourseStructure: (id, token) => request(`/admin/courses/${id}/structure`, { token }),
   adminAddModule: (courseId, payload, token) => request(`/admin/courses/${courseId}/modules`, { method:'POST', body:payload, token }),
