@@ -51,4 +51,19 @@ export const api = {
   markThreadRead: (userId, token) => request(`/messages/thread/${userId}/read`, { method: 'PATCH', token }),
   sendMessage: (payload, token) => request('/messages', { method: 'POST', body: payload, token }),
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
+
+  // --- Cours ---
+  getCourseCategories: () => request('/courses/categories'),
+  getCourses: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/courses${qs ? `?${qs}` : ''}`);
+  },
+  getCourse: (id) => request(`/courses/${id}`),
+  getCourseProgress: (id, token) => request(`/courses/${id}/progress`, { token }),
+  enrollCourse: (id, token) => request(`/courses/${id}/enroll`, { method: 'POST', token }),
+  toggleFavorite: (id, token) => request(`/courses/${id}/favorite`, { method: 'POST', token }),
+  getLesson: (lessonId, token) => request(`/courses/lessons/${lessonId}`, { token }),
+  completeLesson: (lessonId, token) =>
+    request(`/courses/lessons/${lessonId}/complete`, { method: 'POST', token }),
+  getMyCourses: (token) => request('/courses/mine/enrolled', { token }),
 };

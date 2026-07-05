@@ -10,6 +10,11 @@ import Materials from './pages/Materials.jsx';
 import Messages from './pages/Messages.jsx';
 import Session from './pages/Session.jsx';
 import Profile from './pages/Profile.jsx';
+import Catalog from './pages/Catalog.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
+import CourseContent from './pages/CourseContent.jsx';
+import Lesson from './pages/Lesson.jsx';
+import MyCourses from './pages/MyCourses.jsx';
 
 export default function App() {
   return (
@@ -26,6 +31,11 @@ export default function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/session/:id" element={<Session />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/catalog" element={<Catalog />} />
+        <Route path="/course/:id" element={<CourseDetail />} />
+        <Route path="/course/:id/content" element={<CourseContent />} />
+        <Route path="/lesson/:lessonId" element={<Lesson />} />
+        <Route path="/my-courses" element={<MyCourses />} />
         <Route path="*" element={<div className="px-6 py-24 text-center text-ink/50">Page introuvable.</div>} />
       </Routes>
     </div>

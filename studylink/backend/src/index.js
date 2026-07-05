@@ -9,6 +9,7 @@ import subjectRoutes from './routes/subjects.js';
 import reviewRoutes from './routes/reviews.js';
 import materialRoutes from './routes/materials.js';
 import messageRoutes from './routes/messages.js';
+import courseRoutes from './routes/courses.js';
 import { requireAuth } from './middleware/auth.js';
 
 dotenv.config();
@@ -26,6 +27,16 @@ app.use('/api/tutors', (req, res, next) => {
   return requireAuth(req, res, next);
 }, tutorRoutes);
 app.use('/api/subjects', subjectRoutes);
+
+// Cours : le catalogue et le détail sont publics ; progression, favoris,
+// leçons et "mes cours" exigent un token.
+const COURSE_PROTECTED = [/\/progress$/, /\/enroll$/, /\/favorite$/, /^\/lessons\//, /^\/mine\//];
+app.use('/api/courses', (req, res, next) => {
+  const needsAuth =
+    req.method !== 'GET' || COURSE_PROTECTED.some((re) => re.test(req.path));
+  if (needsAuth) return requireAuth(req, res, next);
+  return next();
+}, courseRoutes);
 
 // Routes protégées (token JWT requis)
 app.use('/api/bookings', requireAuth, bookingRoutes);

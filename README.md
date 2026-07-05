@@ -44,8 +44,14 @@ psql "$DATABASE_URL" -f migrations/schema.sql
 # Si ta base existait déjà avant l'ajout de la messagerie, lance aussi une fois :
 # psql "$DATABASE_URL" -f migrations/002_add_messages.sql
 
+# Module Catalogue de cours (à lancer une fois) :
+# psql "$DATABASE_URL" -f migrations/003_add_courses.sql
+
 # Peuple avec des données de démo (4 tuteurs, 1 élève, mot de passe: password123)
 npm run seed
+
+# Peuple le catalogue de cours de démo (à lancer APRÈS npm run seed) :
+npm run seed:courses
 
 # Démarre le serveur (http://localhost:4000)
 npm run dev
