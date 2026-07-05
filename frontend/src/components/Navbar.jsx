@@ -43,14 +43,6 @@ export default function Navbar() {
           <Link className={navLinkClass({ active: true })} to="/search">
             Rechercher un tuteur
           </Link>
-          <Link className={navLinkClass({ active: false })} to="/catalog">
-            Catalogue
-          </Link>
-          {user && (
-            <Link className={navLinkClass({ active: false })} to="/my-courses">
-              Mes cours
-            </Link>
-          )}
           {user && (
             <Link className={navLinkClass({ active: false })} to="/bookings">
               Mes réservations
