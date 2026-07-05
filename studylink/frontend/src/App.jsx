@@ -1,43 +1,90 @@
 import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar.jsx';
-import Home from './pages/Home.jsx';
-import Login from './pages/Login.jsx';
+import HomePage from './pages/dashboard/HomePage.jsx';
+import LoginPage from './pages/auth/LoginPage.jsx';
+import SearchTutorsPage from './pages/tutors/SearchTutorsPage.jsx';
+import TutorProfilePage from './pages/tutors/TutorProfilePage.jsx';
+import CalendarPage from './pages/sessions/CalendarPage.jsx';
+import ReservePage from './pages/sessions/ReservePage.jsx';
+import BookingsPage from './pages/sessions/BookingsPage.jsx';
+import SessionDetailPage from './pages/sessions/SessionDetailPage.jsx';
+import VideoSessionPage from './pages/sessions/VideoSessionPage.jsx';
+import MaterialsPage from './pages/materials/MaterialsPage.jsx';
+import ForumPage from './pages/community/ForumPage.jsx';
+import MessagesPage from './pages/messages/MessagesPage.jsx';
+import ConversationPage from './pages/messages/ConversationPage.jsx';
+import AlertsPage from './pages/notifications/AlertsPage.jsx';
+import CataloguePage from './pages/learning/CataloguePage.jsx';
+import CourseDetailPage from './pages/learning/CourseDetailPage.jsx';
+import CourseModulesPage from './pages/learning/CourseModulesPage.jsx';
+import LessonPage from './pages/learning/LessonPage.jsx';
+import TutorialPage from './pages/learning/TutorialPage.jsx';
+import BootcampsPage from './pages/bootcamps/BootcampsPage.jsx';
+import CareerPrepPage from './pages/career/CareerPrepPage.jsx';
+import PersonalDevelopmentPage from './pages/personal-development/PersonalDevelopmentPage.jsx';
+import PersonalProgramPage from './pages/personal-development/PersonalProgramPage.jsx';
+import PersonalBooksPage from './pages/personal-development/PersonalBooksPage.jsx';
+import BookReaderPage from './pages/personal-development/BookReaderPage.jsx';
+import EntrepreneurshipPage from './pages/entrepreneurship/EntrepreneurshipPage.jsx';
+import BusinessPlanCoursePage from './pages/entrepreneurship/BusinessPlanCoursePage.jsx';
+import EntrepreneurToolkitPage from './pages/entrepreneurship/EntrepreneurToolkitPage.jsx';
+import EntrepreneurProjectPage from './pages/entrepreneurship/EntrepreneurProjectPage.jsx';
 import Register from './pages/Register.jsx';
-import SearchTutors from './pages/SearchTutors.jsx';
-import TutorProfile from './pages/TutorProfile.jsx';
-import Bookings from './pages/Bookings.jsx';
-import Materials from './pages/Materials.jsx';
-import Messages from './pages/Messages.jsx';
-import Session from './pages/Session.jsx';
 import Profile from './pages/Profile.jsx';
-import Catalog from './pages/Catalog.jsx';
-import CourseDetail from './pages/CourseDetail.jsx';
-import CourseContent from './pages/CourseContent.jsx';
-import Lesson from './pages/Lesson.jsx';
-import MyCourses from './pages/MyCourses.jsx';
+import AdminGuard from './pages/admin/AdminGuard.jsx';
+import AdminLayout from './pages/admin/AdminLayout.jsx';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage.jsx';
+import AdminCoursesPage from './pages/admin/AdminCoursesPage.jsx';
+import CourseFormPage from './pages/admin/CourseFormPage.jsx';
+import CourseStructurePage from './pages/admin/CourseStructurePage.jsx';
+import GenericContentPage from './pages/admin/GenericContentPage.jsx';
+import AdminUsersPage from './pages/admin/AdminUsersPage.jsx';
 
-export default function App() {
-  return (
-    <div className="min-h-screen bg-[#F7F8FB]">
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/search" element={<SearchTutors />} />
-        <Route path="/tutors/:id" element={<TutorProfile />} />
-        <Route path="/bookings" element={<Bookings />} />
-        <Route path="/materials" element={<Materials />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/session/:id" element={<Session />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/catalog" element={<Catalog />} />
-        <Route path="/course/:id" element={<CourseDetail />} />
-        <Route path="/course/:id/content" element={<CourseContent />} />
-        <Route path="/lesson/:lessonId" element={<Lesson />} />
-        <Route path="/my-courses" element={<MyCourses />} />
-        <Route path="*" element={<div className="px-6 py-24 text-center text-ink/50">Page introuvable.</div>} />
-      </Routes>
-    </div>
-  );
-}
+
+export default function App(){return <Routes>
+  <Route path="/" element={<HomePage/>}/>
+  <Route path="/login" element={<LoginPage/>}/>
+  <Route path="/register" element={<Register/>}/>
+  <Route path="/search" element={<SearchTutorsPage/>}/>
+  <Route path="/tutors/:id" element={<TutorProfilePage/>}/>
+  <Route path="/calendar" element={<CalendarPage/>}/>
+  <Route path="/reserve/:id" element={<ReservePage/>}/>
+  <Route path="/bookings" element={<BookingsPage/>}/>
+  <Route path="/session/:id" element={<SessionDetailPage/>}/>
+  <Route path="/video-session" element={<VideoSessionPage/>}/>
+  <Route path="/materials" element={<MaterialsPage/>}/>
+  <Route path="/forum" element={<ForumPage/>}/>
+  <Route path="/messages" element={<MessagesPage/>}/>
+  <Route path="/messages/:id" element={<ConversationPage/>}/>
+  <Route path="/alerts" element={<AlertsPage/>}/>
+  <Route path="/catalogue" element={<CataloguePage/>}/>
+  <Route path="/courses/:id" element={<CourseDetailPage/>}/>
+  <Route path="/courses/:id/modules" element={<CourseModulesPage/>}/>
+  <Route path="/lessons/:id" element={<LessonPage/>}/>
+  <Route path="/tutorials/:id" element={<TutorialPage/>}/>
+  <Route path="/bootcamps" element={<BootcampsPage/>}/>
+  <Route path="/career-prep" element={<CareerPrepPage/>}/>
+  <Route path="/personal-development" element={<PersonalDevelopmentPage/>}/>
+  <Route path="/personal-development/programs/:id" element={<PersonalProgramPage/>}/>
+  <Route path="/personal-development/books" element={<PersonalBooksPage/>}/>
+  <Route path="/personal-development/books/:id" element={<BookReaderPage/>}/>
+  <Route path="/entrepreneurship" element={<EntrepreneurshipPage/>}/>
+  <Route path="/entrepreneurship/business-plan" element={<BusinessPlanCoursePage/>}/>
+  <Route path="/entrepreneurship/toolkit" element={<EntrepreneurToolkitPage/>}/>
+  <Route path="/entrepreneurship/project" element={<EntrepreneurProjectPage/>}/>
+  <Route path="/profile" element={<Profile/>}/>
+  <Route path="/admin" element={<AdminGuard><AdminLayout/></AdminGuard>}>
+    <Route index element={<AdminDashboardPage/>}/>
+    <Route path="courses" element={<AdminCoursesPage/>}/>
+    <Route path="courses/new" element={<CourseFormPage/>}/>
+    <Route path="courses/:id/edit" element={<CourseFormPage/>}/>
+    <Route path="courses/:id/structure" element={<CourseStructurePage/>}/>
+    <Route path="tutorials" element={<GenericContentPage type="tutorials"/>}/>
+    <Route path="books" element={<GenericContentPage type="books"/>}/>
+    <Route path="bootcamps" element={<GenericContentPage type="bootcamps"/>}/>
+    <Route path="personal-development" element={<GenericContentPage type="personal"/>}/>
+    <Route path="entrepreneurship" element={<GenericContentPage type="entrepreneurship"/>}/>
+    <Route path="users" element={<AdminUsersPage/>}/>
+  </Route>
+
+  <Route path="*" element={<HomePage/>}/>
+</Routes>}

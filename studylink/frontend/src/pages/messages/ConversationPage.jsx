@@ -1,0 +1,6 @@
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { AppShell, Avatar } from '../../components/AppShell.jsx';
+import { useAppData } from '../../context/AppDataContext.jsx';
+const avatar='https://i.pravatar.cc/160?img=12';
+export default function ConversationPage(){const {id='1'}=useParams(); const {state,sendMessage}=useAppData(); const [text,setText]=useState(''); const messages=state.messages[id]||state.messages['1']||[]; const submit=e=>{e.preventDefault();if(!text.trim())return;sendMessage(id,text.trim());setText('')}; return <AppShell><div className="page conversation-page"><div className="chat-header"><button onClick={()=>history.back()}>←</button><Avatar src={avatar}/><div className="grow"><h2>Marc T.</h2><p>● En ligne</p></div><span>☎ ⋮</span></div><div className="chat-body"><span className="day-pill">Aujourd’hui</span>{messages.map(m=><div key={m.id} className={`bubble ${m.mine?'outgoing':'incoming'} ${m.file?'file-bubble':''}`}>{m.file?<><b>PDF</b><span>{m.file}<br/><small>{m.size}</small></span></>:m.text}<small>{m.time}{m.mine?' ✓✓':''}</small></div>)}</div><form className="composer" onSubmit={submit}>📎<input value={text} onChange={e=>setText(e.target.value)} placeholder="Écrire un message..."/><button>➤</button></form></div></AppShell>}

@@ -52,18 +52,19 @@ export const api = {
   sendMessage: (payload, token) => request('/messages', { method: 'POST', body: payload, token }),
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
 
-  // --- Cours ---
-  getCourseCategories: () => request('/courses/categories'),
-  getCourses: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return request(`/courses${qs ? `?${qs}` : ''}`);
-  },
-  getCourse: (id) => request(`/courses/${id}`),
-  getCourseProgress: (id, token) => request(`/courses/${id}/progress`, { token }),
-  enrollCourse: (id, token) => request(`/courses/${id}/enroll`, { method: 'POST', token }),
-  toggleFavorite: (id, token) => request(`/courses/${id}/favorite`, { method: 'POST', token }),
-  getLesson: (lessonId, token) => request(`/courses/lessons/${lessonId}`, { token }),
-  completeLesson: (lessonId, token) =>
-    request(`/courses/lessons/${lessonId}/complete`, { method: 'POST', token }),
-  getMyCourses: (token) => request('/courses/mine/enrolled', { token }),
+  adminDashboard: (token) => request('/admin/dashboard', { token }),
+  adminCategories: (token, universe='') => request(`/admin/categories${universe ? `?universe=${encodeURIComponent(universe)}` : ''}`, { token }),
+  adminUsers: (token) => request('/admin/users', { token }),
+  adminSetUserRole: (id, role, token) => request(`/admin/users/${id}/role`, { method:'PATCH', body:{role}, token }),
+  adminList: (resource, token) => request(`/admin/${resource}`, { token }),
+  adminCreate: (resource, payload, token) => request(`/admin/${resource}`, { method:'POST', body:payload, token }),
+  adminUpdateCourse: (id, payload, token) => request(`/admin/courses/${id}`, { method:'PUT', body:payload, token }),
+  adminDelete: (resource, id, token) => request(`/admin/${resource}/${id}`, { method:'DELETE', token }),
+  adminCourseStructure: (id, token) => request(`/admin/courses/${id}/structure`, { token }),
+  adminAddModule: (courseId, payload, token) => request(`/admin/courses/${courseId}/modules`, { method:'POST', body:payload, token }),
+  adminDeleteModule: (id, token) => request(`/admin/modules/${id}`, { method:'DELETE', token }),
+  adminAddLesson: (moduleId, payload, token) => request(`/admin/modules/${moduleId}/lessons`, { method:'POST', body:payload, token }),
+  adminDeleteLesson: (id, token) => request(`/admin/lessons/${id}`, { method:'DELETE', token }),
+  adminAddTutorialStep: (id, payload, token) => request(`/admin/tutorials/${id}/steps`, { method:'POST', body:payload, token }),
+  adminAddProgramDay: (id, payload, token) => request(`/admin/personal-programs/${id}/days`, { method:'POST', body:payload, token }),
 };
