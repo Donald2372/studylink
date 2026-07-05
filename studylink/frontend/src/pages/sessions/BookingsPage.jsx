@@ -1,30 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../api.js';
-import { useAuth } from '../../context/AuthContext.jsx';
-import { AppShell, PageHeader, Card, Chip, Progress, Avatar, Logo } from '../../components/AppShell.jsx';
-
-const avatars = [
-  'https://i.pravatar.cc/160?img=12','https://i.pravatar.cc/160?img=47','https://i.pravatar.cc/160?img=13','https://i.pravatar.cc/160?img=32','https://i.pravatar.cc/160?img=5'
-];
-const tutorFallback = [
-  {id:1, full_name:'Marc T.', headline:'Python · IA · Machine Learning', avg_rating:4.9, review_count:284, hourly_rate:25, avatar_url:avatars[0]},
-  {id:2, full_name:'Sophie L.', headline:'Mathématiques', avg_rating:4.8, review_count:197, hourly_rate:20, avatar_url:avatars[1]},
-  {id:3, full_name:'Thomas D.', headline:'Java · Spring Boot', avg_rating:4.7, review_count:210, hourly_rate:30, avatar_url:avatars[2]},
-  {id:4, full_name:'Amina K.', headline:'Physique · Mécanique', avg_rating:4.9, review_count:189, hourly_rate:22, avatar_url:avatars[3]},
-];
-const sessions = [
-  ['Python – Avancé','Marc T.','15 mai 2025 · 15:30','Confirmée',avatars[0]],
-  ['Mathématiques','Sophie L.','16 mai 2025 · 10:00','Confirmée',avatars[1]],
-  ['Java – Spring Boot','Thomas D.','17 mai 2025 · 14:00','À venir',avatars[2]],
-  ['Algo & Structures de données','Armin K.','18 mai 2025 · 11:00','À venir',avatars[4]],
-];
-const courses = [
-  {title:'Python pour débutants', mentor:'Marie T.', rating:'4,9', level:'Débutant', progress:65, tone:'python'},
-  {title:'Machine Learning', mentor:'Marc T.', rating:'4,8', level:'Intermédiaire', progress:30, tone:'ai'},
-  {title:'Algorithmes & Structures', mentor:'Sophie L.', rating:'4,7', level:'Intermédiaire', progress:80, tone:'code'},
-];
-const categories = ['Informatique','Mathématiques','Physique','Langues','Emploi & Carrière','Développement personnel','Data Science','Business'];
-
-
-export default function BookingsPage(){const {token,user}=useAuth(); const [list,setList]=useState(sessions); useEffect(()=>{if(token) api.myBookings(token).then(r=>r.bookings?.length&&setList(r.bookings.map((b,i)=>[b.subject_name||'Session',user?.role==='tutor'?b.student_name:b.tutor_name,new Date(b.start_time).toLocaleString('fr-FR'),b.status==='confirmed'?'Confirmée':'À venir',avatars[i%avatars.length]]))).catch(()=>{})},[token]);return <AppShell><div className="page"><PageHeader title="Mes sessions"/><div className="tabs"><b>À venir</b><span>En cours</span><span>Terminées</span><span>Annulées</span></div><div className="stack">{list.map((s,i)=><Link to={`/session/${i+1}`} className="session-row"><Avatar src={s[4]} size="lg"/><div className="grow"><h3>{s[0]}</h3><p>Avec {s[1]}</p><span>{s[2]}</span></div><Chip tone={s[3]==='Confirmée'?'green':'blue'}>{s[3]}</Chip><b>›</b></Link>)}</div></div></AppShell>}
+import { Link } from 'react-router-dom';
+import { AppShell, PageHeader, Avatar, Chip } from '../../components/AppShell.jsx';
+import { useAppData } from '../../context/AppDataContext.jsx';
+const fallback=[
+{id:'f1',title:'Python – Avancé',tutor:'Marc T.',date:'15 mai 2025',time:'15:30',status:'Confirmée',avatar:'https://i.pravatar.cc/160?img=12'},
+{id:'f2',title:'Mathématiques',tutor:'Sophie L.',date:'16 mai 2025',time:'10:00',status:'Confirmée',avatar:'https://i.pravatar.cc/160?img=47'}];
+export default function BookingsPage(){const {state,cancelBooking}=useAppData(); const all=[...state.bookings,...fallback]; return <AppShell><div className="page"><PageHeader title="Mes sessions"/><div className="chip-row"><Chip active>À venir</Chip><Chip>En cours</Chip><Chip>Terminées</Chip><Chip>Annulées</Chip></div><div className="stack">{all.map((s,i)=><div className="session-row" key={s.id}><Avatar src={s.avatar||'https://i.pravatar.cc/160?img=12'} size="lg"/><div className="grow"><h3>{s.title}</h3><p>Avec {s.tutor}</p><span>{s.date} · {s.time}</span></div><div className="stack"><span className="status-pill">{s.status}</span>{String(s.id).startsWith('f')?<Link to="/session/1">Ouvrir</Link>:s.status!=='Annulée'&&<button className="outline-btn" onClick={()=>cancelBooking(s.id)}>Annuler</button>}</div></div>)}</div></div></AppShell>}

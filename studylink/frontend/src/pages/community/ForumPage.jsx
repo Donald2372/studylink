@@ -1,30 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../api.js';
-import { useAuth } from '../../context/AuthContext.jsx';
-import { AppShell, PageHeader, Card, Chip, Progress, Avatar, Logo } from '../../components/AppShell.jsx';
-
-const avatars = [
-  'https://i.pravatar.cc/160?img=12','https://i.pravatar.cc/160?img=47','https://i.pravatar.cc/160?img=13','https://i.pravatar.cc/160?img=32','https://i.pravatar.cc/160?img=5'
-];
-const tutorFallback = [
-  {id:1, full_name:'Marc T.', headline:'Python · IA · Machine Learning', avg_rating:4.9, review_count:284, hourly_rate:25, avatar_url:avatars[0]},
-  {id:2, full_name:'Sophie L.', headline:'Mathématiques', avg_rating:4.8, review_count:197, hourly_rate:20, avatar_url:avatars[1]},
-  {id:3, full_name:'Thomas D.', headline:'Java · Spring Boot', avg_rating:4.7, review_count:210, hourly_rate:30, avatar_url:avatars[2]},
-  {id:4, full_name:'Amina K.', headline:'Physique · Mécanique', avg_rating:4.9, review_count:189, hourly_rate:22, avatar_url:avatars[3]},
-];
-const sessions = [
-  ['Python – Avancé','Marc T.','15 mai 2025 · 15:30','Confirmée',avatars[0]],
-  ['Mathématiques','Sophie L.','16 mai 2025 · 10:00','Confirmée',avatars[1]],
-  ['Java – Spring Boot','Thomas D.','17 mai 2025 · 14:00','À venir',avatars[2]],
-  ['Algo & Structures de données','Armin K.','18 mai 2025 · 11:00','À venir',avatars[4]],
-];
-const courses = [
-  {title:'Python pour débutants', mentor:'Marie T.', rating:'4,9', level:'Débutant', progress:65, tone:'python'},
-  {title:'Machine Learning', mentor:'Marc T.', rating:'4,8', level:'Intermédiaire', progress:30, tone:'ai'},
-  {title:'Algorithmes & Structures', mentor:'Sophie L.', rating:'4,7', level:'Intermédiaire', progress:80, tone:'code'},
-];
-const categories = ['Informatique','Mathématiques','Physique','Langues','Emploi & Carrière','Développement personnel','Data Science','Business'];
-
-
-export default function ForumPage(){const topics=[['Comment optimiser un algo ?','Python','18 réponses','3'],['Intégrales doubles','Maths','12 réponses','2'],['Aide projet IA','IA & ML','7 réponses',''],['Entretien Tech – questions','Emploi','23 réponses','5'],['Ressources pour progresser en SQL','Autres','9 réponses','1']];return <AppShell><div className="page"><PageHeader title="Forum"/><div className="search-box">⌕<input placeholder="Rechercher dans le forum..."/></div><div className="chip-row"><Chip active>Toutes</Chip><Chip>Python</Chip><Chip>Maths</Chip><Chip>Emploi</Chip><Chip>Autres</Chip></div><Card>{topics.map(([t,c,r,n])=><div className="forum-row"><div className="topic-icon">◈</div><div className="grow"><h3>{t}</h3><p>Je travaille sur un sujet et j’aimerais vos conseils pour progresser...</p><span>{c} · {r} · il y a 15 min</span></div>{n&&<b className="badge">{n}</b>}</div>)}</Card><button className="primary-btn full">＋ Nouvelle discussion</button></div></AppShell>}
+import { useMemo, useState } from 'react';
+import { AppShell, PageHeader, Card, Chip } from '../../components/AppShell.jsx';
+import { useAppData } from '../../context/AppDataContext.jsx';
+export default function ForumPage(){const {state,addForumTopic}=useAppData(); const [q,setQ]=useState(''); const [cat,setCat]=useState('Toutes'); const [open,setOpen]=useState(false); const [title,setTitle]=useState(''); const [newCat,setNewCat]=useState('Python'); const topics=useMemo(()=>state.forumTopics.filter(t=>(cat==='Toutes'||t.category===cat)&&t.title.toLowerCase().includes(q.toLowerCase())),[state.forumTopics,q,cat]); const create=e=>{e.preventDefault();if(!title.trim())return;addForumTopic(title.trim(),newCat);setTitle('');setOpen(false)}; return <AppShell><div className="page"><PageHeader title="Forum"/><div className="search-box">⌕<input value={q} onChange={e=>setQ(e.target.value)} placeholder="Rechercher dans le forum..."/></div><div className="chip-row">{['Toutes','Python','Maths','Emploi','Autres'].map(x=><button key={x} onClick={()=>setCat(x)} className={`chip ${cat===x?'active':''}`}>{x}</button>)}</div><Card>{topics.map(t=><div className="forum-row" key={t.id}><div className="topic-icon">◈</div><div className="grow"><h3>{t.title}</h3><p>Cliquez pour participer à la discussion et partager votre expérience.</p><span>{t.category} · {t.replies} réponses</span></div>{t.unread>0&&<b className="badge">{t.unread}</b>}</div>)}</Card><button className="primary-btn full" onClick={()=>setOpen(true)}>＋ Nouvelle discussion</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}><h2>Nouvelle discussion</h2><form onSubmit={create}><input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="Titre de votre question"/><select value={newCat} onChange={e=>setNewCat(e.target.value)}>{['Python','Maths','Emploi','Autres'].map(x=><option key={x}>{x}</option>)}</select><div className="dual-actions"><button type="button" className="outline-btn" onClick={()=>setOpen(false)}>Annuler</button><button className="primary-btn">Publier</button></div></form></div></div>}</div></AppShell>}

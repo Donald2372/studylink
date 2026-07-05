@@ -1,30 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../api.js';
-import { useAuth } from '../../context/AuthContext.jsx';
-import { AppShell, PageHeader, Card, Chip, Progress, Avatar, Logo } from '../../components/AppShell.jsx';
-
-const avatars = [
-  'https://i.pravatar.cc/160?img=12','https://i.pravatar.cc/160?img=47','https://i.pravatar.cc/160?img=13','https://i.pravatar.cc/160?img=32','https://i.pravatar.cc/160?img=5'
-];
-const tutorFallback = [
-  {id:1, full_name:'Marc T.', headline:'Python · IA · Machine Learning', avg_rating:4.9, review_count:284, hourly_rate:25, avatar_url:avatars[0]},
-  {id:2, full_name:'Sophie L.', headline:'Mathématiques', avg_rating:4.8, review_count:197, hourly_rate:20, avatar_url:avatars[1]},
-  {id:3, full_name:'Thomas D.', headline:'Java · Spring Boot', avg_rating:4.7, review_count:210, hourly_rate:30, avatar_url:avatars[2]},
-  {id:4, full_name:'Amina K.', headline:'Physique · Mécanique', avg_rating:4.9, review_count:189, hourly_rate:22, avatar_url:avatars[3]},
-];
-const sessions = [
-  ['Python – Avancé','Marc T.','15 mai 2025 · 15:30','Confirmée',avatars[0]],
-  ['Mathématiques','Sophie L.','16 mai 2025 · 10:00','Confirmée',avatars[1]],
-  ['Java – Spring Boot','Thomas D.','17 mai 2025 · 14:00','À venir',avatars[2]],
-  ['Algo & Structures de données','Armin K.','18 mai 2025 · 11:00','À venir',avatars[4]],
-];
-const courses = [
-  {title:'Python pour débutants', mentor:'Marie T.', rating:'4,9', level:'Débutant', progress:65, tone:'python'},
-  {title:'Machine Learning', mentor:'Marc T.', rating:'4,8', level:'Intermédiaire', progress:30, tone:'ai'},
-  {title:'Algorithmes & Structures', mentor:'Sophie L.', rating:'4,7', level:'Intermédiaire', progress:80, tone:'code'},
-];
-const categories = ['Informatique','Mathématiques','Physique','Langues','Emploi & Carrière','Développement personnel','Data Science','Business'];
-
-
-export default function LessonPage(){return <AppShell><div className="page"><PageHeader title="StudyLink" back/><p className="breadcrumb">Mes cours › Python – Programmation avancée › Module 1</p><h1>Leçon 3 : Premier programme en Python</h1><p>Module 1 : Bases de Python · 20 min · Débutant</p><div className="youtube-player"><div className="yt-brand">▶ YouTube</div><div className="yt-title">Premier programme<br/><b>en Python</b></div><button>▶</button><div className="yt-controls">▶ ◀︎ ◉ 🔊 3:45 / 8:32 <span>⚙ ◻ ⛶</span></div></div><div className="tabs"><b>Résumé</b><span>Notes</span><span>Ressources</span><span>Exercices</span></div><Card><h3>Dans cette leçon, vous allez :</h3><p>✓ Créer votre premier programme en Python</p><p>✓ Comprendre la fonction print()</p><p>✓ Exécuter un script Python pas à pas</p><div className="info-banner">ⓘ Chaque expert a commencé par un simple “Hello, World !” 🚀</div></Card><div className="dual-actions"><button className="outline-btn">← Leçon précédente</button><Link className="primary-btn" to="/tutorials/python">Leçon suivante →</Link></div></div></AppShell>}
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { AppShell, PageHeader, Card } from '../../components/AppShell.jsx';
+import { useAppData } from '../../context/AppDataContext.jsx';
+export default function LessonPage(){const {id='python-lesson-3'}=useParams(); const {completeLesson,state}=useAppData(); const [playing,setPlaying]=useState(false); const [tab,setTab]=useState('Résumé'); const tabs=['Résumé','Notes','Ressources','Exercices']; const done=state.lessonCompleted[id]; return <AppShell><div className="page"><PageHeader title="StudyLink" back/><p className="breadcrumb">Mes cours › Python – Programmation avancée › Module 1</p><h1>Leçon 3 : Premier programme en Python</h1><p>Module 1 : Bases de Python · 20 min · Débutant</p><div className="youtube-player"><div className="yt-brand">▶ YouTube</div><div className="yt-title">Premier programme<br/><b>en Python</b></div><button className={playing?'video-play-active':''} onClick={()=>setPlaying(v=>!v)}>{playing?'❚❚':'▶'}</button><div className="yt-controls">{playing?'❚❚':'▶'} ◀︎ ◉ 🔊 3:45 / 8:32 <span>⚙ ◻ ⛶</span></div></div><div className="tabs">{tabs.map(t=><span key={t} onClick={()=>setTab(t)} className={`interactive-tab ${tab===t?'active':''}`}>{t}</span>)}</div><Card>{tab==='Résumé'&&<><h3>Dans cette leçon, vous allez :</h3><p>✓ Créer votre premier programme en Python</p><p>✓ Comprendre la fonction print()</p><p>✓ Exécuter un script Python pas à pas</p></>}{tab==='Notes'&&<textarea rows="6" placeholder="Écrivez vos notes personnelles ici..."/>}{tab==='Ressources'&&<p>📄 Support de cours Python · 💻 Exemples de code · 🔗 Documentation officielle</p>}{tab==='Exercices'&&<p>Exercice : modifiez le programme pour afficher votre prénom et votre âge.</p>}<div className="info-banner">{done?'✓ Leçon terminée et progression enregistrée.':'ⓘ Votre progression est enregistrée dans ce navigateur.'}</div></Card><div className="dual-actions"><Link className="outline-btn" to="/courses/1/modules">← Leçon précédente</Link><button className="primary-btn" onClick={()=>completeLesson(id)}>{done?'Terminée ✓':'Marquer comme terminée'}</button></div></div></AppShell>}
