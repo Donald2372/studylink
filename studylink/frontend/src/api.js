@@ -55,6 +55,7 @@ export const api = {
 
   createBooking: (payload, token) => request('/bookings', { method: 'POST', body: payload, token }),
   myBookings: (token) => request('/bookings/me', { token }),
+  getBooking: (id, token) => request(`/bookings/${id}`, { token }),
   cancelBooking: (id, token) => request(`/bookings/${id}/cancel`, { method: 'PATCH', token }),
 
   addReview: (payload, token) => request('/reviews', { method: 'POST', body: payload, token }),
@@ -75,6 +76,29 @@ export const api = {
     return request('/messages', { method:'POST', body:form, token });
   },
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
+
+  searchUsers: (q, token) => request(`/messages/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, { token }),
+  getForumCategories: () => request('/content/forum/categories'),
+  getForumTopics: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/forum/topics${qs ? `?${qs}` : ''}`); },
+  getForumTopic: (id) => request(`/content/forum/topics/${id}`),
+  createForumTopic: (payload, token) => request('/content/forum/topics', { method:'POST', body:payload, token }),
+  createForumPost: (topicId, payload, token) => request(`/content/forum/topics/${topicId}/posts`, { method:'POST', body:payload, token }),
+  getBootcamps: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/bootcamps${qs ? `?${qs}` : ''}`); },
+  registerBootcamp: (id, token) => request(`/content/bootcamps/${id}/register`, { method:'POST', token }),
+  getPersonalPrograms: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/personal-programs${qs ? `?${qs}` : ''}`); },
+  getPersonalProgram: (id) => request(`/content/personal-programs/${id}`),
+  startPersonalProgram: (id, token) => request(`/content/personal-programs/${id}/start`, { method:'POST', token }),
+  getBooks: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/books${qs ? `?${qs}` : ''}`); },
+  getBook: (id) => request(`/content/books/${id}`),
+  saveBookProgress: (id, payload, token) => request(`/content/books/${id}/progress`, { method:'POST', body:payload, token }),
+  enrollCourse: (id, token) => request(`/content/courses/${id}/enroll`, { method:'POST', token }),
+  saveLessonProgress: (id, payload, token) => request(`/content/lessons/${id}/progress`, { method:'POST', body:payload, token }),
+  getMyLearning: (token) => request('/content/my/learning', { token }),
+  getEntrepreneurTools: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/entrepreneur-tools${qs ? `?${qs}` : ''}`); },
+  getMyEntrepreneurProject: (token) => request('/content/entrepreneur-projects/me', { token }),
+  updateEntrepreneurTask: (id, status, token) => request(`/content/entrepreneur-tasks/${id}`, { method:'PATCH', body:{status}, token }),
+  getNotifications: (token) => request('/content/notifications', { token }),
+  markNotificationRead: (id, token) => request(`/content/notifications/${id}/read`, { method:'PATCH', token }),
 
   adminDashboard: (token) => request('/admin/dashboard', { token }),
   adminCategories: (token, universe='') => request(`/admin/categories${universe ? `?universe=${encodeURIComponent(universe)}` : ''}`, { token }),

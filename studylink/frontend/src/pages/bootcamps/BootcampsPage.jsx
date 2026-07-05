@@ -1,30 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { AppShell, PageHeader, Card, Chip, Progress, Avatar, Logo } from '../../components/AppShell.jsx';
+import { AppShell, PageHeader, Card, Chip, Progress } from '../../components/AppShell.jsx';
 
-const avatars = [
-  'https://i.pravatar.cc/160?img=12','https://i.pravatar.cc/160?img=47','https://i.pravatar.cc/160?img=13','https://i.pravatar.cc/160?img=32','https://i.pravatar.cc/160?img=5'
-];
-const tutorFallback = [
-  {id:1, full_name:'Marc T.', headline:'Python · IA · Machine Learning', avg_rating:4.9, review_count:284, hourly_rate:25, avatar_url:avatars[0]},
-  {id:2, full_name:'Sophie L.', headline:'Mathématiques', avg_rating:4.8, review_count:197, hourly_rate:20, avatar_url:avatars[1]},
-  {id:3, full_name:'Thomas D.', headline:'Java · Spring Boot', avg_rating:4.7, review_count:210, hourly_rate:30, avatar_url:avatars[2]},
-  {id:4, full_name:'Amina K.', headline:'Physique · Mécanique', avg_rating:4.9, review_count:189, hourly_rate:22, avatar_url:avatars[3]},
-];
-const sessions = [
-  ['Python – Avancé','Marc T.','15 mai 2025 · 15:30','Confirmée',avatars[0]],
-  ['Mathématiques','Sophie L.','16 mai 2025 · 10:00','Confirmée',avatars[1]],
-  ['Java – Spring Boot','Thomas D.','17 mai 2025 · 14:00','À venir',avatars[2]],
-  ['Algo & Structures de données','Armin K.','18 mai 2025 · 11:00','À venir',avatars[4]],
-];
-const courses = [
-  {title:'Python pour débutants', mentor:'Marie T.', rating:'4,9', level:'Débutant', progress:65, tone:'python'},
-  {title:'Machine Learning', mentor:'Marc T.', rating:'4,8', level:'Intermédiaire', progress:30, tone:'ai'},
-  {title:'Algorithmes & Structures', mentor:'Sophie L.', rating:'4,7', level:'Intermédiaire', progress:80, tone:'code'},
-];
-const categories = ['Informatique','Mathématiques','Physique','Langues','Emploi & Carrière','Développement personnel','Data Science','Business'];
+const statusLabel={project:'En projet',upcoming:'À venir',ongoing:'En cours',completed:'Terminé',cancelled:'Annulé'};
 
-
-export default function BootcampsPage(){const b=[['Bootcamp Python Débutant','En cours','12 – 23 mai 2025','128 étudiants'],['Prépa entretien Tech','À venir','26 mai – 8 juin 2025','96 étudiants'],['Atelier CV & LinkedIn','Terminé','5 – 6 mai 2025','142 étudiants']];return <AppShell><div className="page"><PageHeader title="Bootcamps & formations"/><div className="search-box">⌕<input placeholder="Rechercher un bootcamp, une compétence..."/></div><div className="chip-row"><Chip active>En cours</Chip><Chip>À venir</Chip><Chip>Terminés</Chip></div><div className="info-banner">🎁 Nouveaux bootcamps gratuits disponibles. Activez les alertes.</div><div className="stack">{b.map((x,i)=><Card className="bootcamp-card"><div className="boot-icon">{i===0?'Py':i===1?'⌨':'CV'}</div><div className="grow"><div className="between"><Chip tone={i===0?'green':'blue'}>{x[1]}</Chip><Chip tone="green">Gratuit</Chip></div><h2>{x[0]}</h2><p>{x[2]} · {x[3]}</p><Progress value={[60,0,100][i]}/></div><button className={i===2?'outline-btn':'primary-btn'}>{i===2?'Voir le replay':'Rejoindre'}</button></Card>)}</div></div></AppShell>}
+export default function BootcampsPage(){
+  const {token}=useAuth();
+  const [items,setItems]=useState([]);
+  const [q,setQ]=useState('');
+  const [tab,setTab]=useState('Tous');
+  const [msg,setMsg]=useState('');
+  const [error,setError]=useState('');
+  const load=()=>api.getBootcamps({q}).then(d=>setItems(d.bootcamps||[])).catch(e=>setError(e.message));
+  useEffect(()=>{const t=setTimeout(load,250);return()=>clearTimeout(t)},[q]);
+  const visible=useMemo(()=>items.filter(b=>tab==='Tous'||statusLabel[b.status]===tab),[items,tab]);
+  async function join(id){if(!token){setError('Connectez-vous pour vous inscrire.');return;}try{await api.registerBootcamp(id,token);setMsg('Inscription confirmée.');load();}catch(e){setError(e.message)}}
+  return <AppShell><div className="page"><PageHeader title="Bootcamps & formations" subtitle="Formations gratuites ajoutées par les tuteurs et administrateurs"/>
+    <div className="search-box">⌕<input value={q} onChange={e=>setQ(e.target.value)} placeholder="Rechercher un bootcamp, une compétence..."/></div>
+    <div className="chip-row">{['Tous','En projet','À venir','En cours','Terminé'].map(x=><button key={x} onClick={()=>setTab(x)} className={`chip ${tab===x?'active':''}`}>{x}</button>)}</div>
+    {msg&&<div className="info-banner">{msg}</div>}{error&&<div className="admin-error">{error}</div>}
+    <div className="stack">{visible.length?visible.map((b)=><Card className="bootcamp-card" key={b.id}><div className="boot-icon">{(b.title||'B').slice(0,2)}</div><div className="grow"><div className="between"><Chip tone={b.status==='ongoing'?'green':'blue'}>{statusLabel[b.status]||b.status}</Chip><Chip tone="green">{b.is_free?'Gratuit':'Payant'}</Chip></div><h2>{b.title}</h2><p>{b.description}</p><p>{b.start_at?new Date(b.start_at).toLocaleDateString('fr-FR'):'Date à confirmer'} · {b.registered_count||0}{b.max_participants?` / ${b.max_participants}`:''} inscrits</p><Progress value={b.status==='completed'?100:b.status==='ongoing'?60:0}/></div>{b.status==='completed'&&b.replay_url?<a className="outline-btn" href={b.replay_url} target="_blank" rel="noreferrer">Voir le replay</a>:<button className="primary-btn" onClick={()=>join(b.id)} disabled={b.status==='completed'||b.status==='project'}>{b.status==='project'?'Bientôt':b.status==='completed'?'Terminé':'S’inscrire'}</button>}</Card>):<Card><p style={{padding:18}}>Aucun bootcamp publié pour le moment.</p></Card>}</div>
+  </div></AppShell>}

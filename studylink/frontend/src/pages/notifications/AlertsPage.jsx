@@ -1,9 +1,15 @@
-import { useMemo, useState } from 'react';
-import { AppShell, PageHeader } from '../../components/AppShell.jsx';
-import { useAppData } from '../../context/AppDataContext.jsx';
-const items=[
-{id:1,type:'Messages',title:'Nouveau message de Marc T.',text:'Bonjour ! J’ai une question sur l’exercice 3.',time:'10:24'},
-{id:2,type:'Forum',title:'Sophie L. a répondu à votre discussion.',text:'Merci pour votre question, voici ma réponse...',time:'09:15'},
-{id:3,type:'Sessions',title:'Rappel : votre session commence dans 30 min.',text:'Python – Programmation avancée avec Marie T.',time:'08:30'},
-{id:4,type:'Bootcamps',title:'Nouveau bootcamp disponible !',text:'Data Science pour débutants – Inscrivez-vous dès maintenant.',time:'08:05'}];
-export default function AlertsPage(){const {state,markNotificationRead}=useAppData();const [filter,setFilter]=useState('Tout');const list=useMemo(()=>items.filter(i=>filter==='Tout'||i.type===filter),[filter]);return <AppShell><div className="page"><PageHeader title="Centre d’alertes" subtitle="Restez informé de tout ce qui compte."/><div className="chip-row">{['Tout','Messages','Forum','Bootcamps'].map(x=><button key={x} onClick={()=>setFilter(x)} className={`chip ${filter===x?'active':''}`}>{x}</button>)}</div><h2>Aujourd’hui</h2><div className="stack">{list.map(i=><button key={i.id} onClick={()=>markNotificationRead(i.id)} className={`tutor-list-card clickable ${state.notificationsRead.includes(i.id)?'read-notification':''}`}><div className="topic-icon">◈</div><div className="grow"><h3>{i.title}</h3><p>{i.text}</p></div><span>{i.time}{!state.notificationsRead.includes(i.id)&&' · ●'}</span></button>)}</div></div></AppShell>}
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../../api.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { AppShell, PageHeader, Card } from '../../components/AppShell.jsx';
+export default function AlertsPage(){
+  const {token}=useAuth(); const [items,setItems]=useState([]); const [filter,setFilter]=useState('Tout'); const [error,setError]=useState('');
+  const load=()=>{if(!token){setError('Connectez-vous pour voir vos notifications.');return;}api.getNotifications(token).then(d=>setItems(d.notifications||[])).catch(e=>setError(e.message))};
+  useEffect(load,[token]);
+  const list=useMemo(()=>items.filter(i=>filter==='Tout'||(i.type||'').toLowerCase().includes(filter.toLowerCase())),[items,filter]);
+  async function read(i){if(token&&!i.read_at){await api.markNotificationRead(i.id,token).catch(()=>{});load();}}
+  return <AppShell><div className="page"><PageHeader title="Centre d’alertes" subtitle="Vos notifications sont propres à votre compte."/>
+    <div className="chip-row">{['Tout','message','forum','bootcamp','booking'].map(x=><button key={x} onClick={()=>setFilter(x)} className={`chip ${filter===x?'active':''}`}>{x==='Tout'?'Tout':x}</button>)}</div>
+    {error&&<div className="admin-error">{error}</div>}
+    <h2>Notifications</h2><div className="stack">{list.length?list.map(i=><button key={i.id} onClick={()=>read(i)} className={`tutor-list-card clickable ${i.read_at?'read-notification':''}`}><div className="topic-icon">◈</div><div className="grow"><h3>{i.title}</h3><p>{i.body}</p></div><span>{new Date(i.created_at).toLocaleString('fr-FR')}{!i.read_at&&' · ●'}</span></button>):<Card><p style={{padding:18}}>Aucune notification pour le moment.</p></Card>}</div>
+  </div></AppShell>}

@@ -10,29 +10,36 @@ const upload = multer({
 });
 
 async function assertContact(userId, otherId) {
+  if (!otherId || otherId === userId) return false;
   const result = await query(
-    `SELECT 1
-     FROM bookings b
-     JOIN tutor_profiles tp ON tp.id = b.tutor_id
-     WHERE (b.student_id = $1 AND tp.user_id = $2) OR (b.student_id = $2 AND tp.user_id = $1)
-     LIMIT 1`,
-    [userId, otherId]
+    `SELECT 1 FROM users WHERE id = $1 LIMIT 1`,
+    [otherId]
   );
   return result.rows.length > 0;
 }
+
 
 router.get('/contacts', async (req, res) => {
   try {
     const userId = req.user.id;
     const contactsResult = await query(
-      `SELECT DISTINCT other.id, other.full_name, other.avatar_url, other.role
-       FROM bookings b
-       JOIN tutor_profiles tp ON tp.id = b.tutor_id
-       JOIN users other ON (
-         (other.id = b.student_id AND tp.user_id = $1) OR
-         (other.id = tp.user_id AND b.student_id = $1)
-       )
-       WHERE b.student_id = $1 OR tp.user_id = $1`,
+      `WITH partners AS (
+          SELECT recipient_id AS id FROM messages WHERE sender_id=$1
+          UNION
+          SELECT sender_id AS id FROM messages WHERE recipient_id=$1
+          UNION
+          SELECT tp.user_id AS id
+          FROM bookings b JOIN tutor_profiles tp ON tp.id=b.tutor_id
+          WHERE b.student_id=$1
+          UNION
+          SELECT b.student_id AS id
+          FROM bookings b JOIN tutor_profiles tp ON tp.id=b.tutor_id
+          WHERE tp.user_id=$1
+        )
+        SELECT DISTINCT u.id, u.full_name, u.avatar_url, u.role
+        FROM partners p JOIN users u ON u.id=p.id
+        WHERE u.id <> $1
+        ORDER BY u.full_name`,
       [userId]
     );
 
@@ -66,6 +73,24 @@ router.get('/contacts', async (req, res) => {
   }
 });
 
+router.get('/users', async (req, res) => {
+  try {
+    const q = (req.query.q || '').toString().trim();
+    const values = [req.user.id];
+    let sql = `SELECT id, full_name, avatar_url, role, email FROM users WHERE id <> $1`;
+    if (q) {
+      values.push(`%${q}%`);
+      sql += ` AND (full_name ILIKE $2 OR email ILIKE $2)`;
+    }
+    sql += ` ORDER BY full_name LIMIT 50`;
+    const result = await query(sql, values);
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur lors de la recherche des utilisateurs.' });
+  }
+});
+
 router.get('/unread-count', async (req, res) => {
   try {
     const result = await query(`SELECT COUNT(*) FROM messages WHERE recipient_id = $1 AND read_at IS NULL`, [req.user.id]);
@@ -80,7 +105,7 @@ router.get('/thread/:userId', async (req, res) => {
   try {
     const otherId = req.params.userId;
     const isContact = await assertContact(req.user.id, otherId);
-    if (!isContact) return res.status(403).json({ error: "Vous n'avez pas de session en commun avec cette personne." });
+    if (!isContact) return res.status(403).json({ error: "Utilisateur introuvable ou non autorisé." });
 
     const messages = await query(
       `SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.created_at,
@@ -121,7 +146,7 @@ router.post('/', upload.single('file'), async (req, res) => {
     if (recipientId === req.user.id) return res.status(400).json({ error: 'Vous ne pouvez pas vous envoyer un message à vous-même.' });
 
     const isContact = await assertContact(req.user.id, recipientId);
-    if (!isContact) return res.status(403).json({ error: "Vous n'avez pas de session en commun avec cette personne." });
+    if (!isContact) return res.status(403).json({ error: "Utilisateur introuvable ou non autorisé." });
 
     let attachment = null;
     if (req.file) {

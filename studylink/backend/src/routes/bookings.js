@@ -7,7 +7,7 @@ const router = Router();
 // Utilise une transaction + verrou de ligne pour empêcher deux élèves
 // de réserver le même créneau en même temps (race condition).
 router.post('/', async (req, res) => {
-  const { slotId, subjectId } = req.body;
+  const { slotId, subjectId, objective } = req.body;
   if (!slotId) return res.status(400).json({ error: 'slotId est requis.' });
 
   const client = await pool.connect();
@@ -40,10 +40,10 @@ router.post('/', async (req, res) => {
     const price = Math.round(hourlyRate * hours * 100) / 100;
 
     const bookingResult = await client.query(
-      `INSERT INTO bookings (student_id, tutor_id, slot_id, subject_id, status, price)
-       VALUES ($1, $2, $3, $4, 'confirmed', $5)
+      `INSERT INTO bookings (student_id, tutor_id, slot_id, subject_id, status, price, objective)
+       VALUES ($1, $2, $3, $4, 'confirmed', $5, $6)
        RETURNING *`,
-      [req.user.id, slot.tutor_id, slotId, subjectId || null, price]
+      [req.user.id, slot.tutor_id, slotId, subjectId || null, price, objective || null]
     );
 
     await client.query(
@@ -69,7 +69,7 @@ router.get('/me', async (req, res) => {
 
     if (req.user.role === 'tutor') {
       sql = `
-        SELECT b.*, s.start_time, s.end_time, u.full_name AS student_name,
+        SELECT b.*, s.start_time, s.end_time, u.full_name AS student_name, u.avatar_url AS student_avatar_url,
                sub.name AS subject_name
         FROM bookings b
         JOIN availability_slots s ON s.id = b.slot_id
@@ -81,7 +81,7 @@ router.get('/me', async (req, res) => {
       params = [req.user.id];
     } else {
       sql = `
-        SELECT b.*, s.start_time, s.end_time, u.full_name AS tutor_name,
+        SELECT b.*, s.start_time, s.end_time, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar_url,
                sub.name AS subject_name
         FROM bookings b
         JOIN availability_slots s ON s.id = b.slot_id
@@ -98,6 +98,33 @@ router.get('/me', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur lors du chargement des réservations.' });
+  }
+});
+
+
+// GET /api/bookings/:id - détail d'une réservation appartenant à l'utilisateur connecté
+router.get('/:id', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT b.*, s.start_time, s.end_time, sub.name AS subject_name,
+        tu.full_name AS tutor_name, tu.avatar_url AS tutor_avatar_url, tu.id AS tutor_user_id,
+        su.full_name AS student_name, su.avatar_url AS student_avatar_url, su.id AS student_user_id,
+        tp.headline AS tutor_headline
+      FROM bookings b
+      JOIN availability_slots s ON s.id=b.slot_id
+      JOIN tutor_profiles tp ON tp.id=b.tutor_id
+      JOIN users tu ON tu.id=tp.user_id
+      JOIN users su ON su.id=b.student_id
+      LEFT JOIN subjects sub ON sub.id=b.subject_id
+      WHERE b.id=$1 AND (b.student_id=$2 OR tp.user_id=$2)
+      LIMIT 1`, [req.params.id, req.user.id]);
+    const booking = result.rows[0];
+    if (!booking) return res.status(404).json({ error: 'Session introuvable.' });
+    const materials = (await query('SELECT * FROM session_materials WHERE booking_id=$1 ORDER BY created_at DESC', [req.params.id])).rows;
+    res.json({ booking, materials });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur lors du chargement de la session.' });
   }
 });
 

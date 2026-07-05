@@ -1,30 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { AppShell, PageHeader, Card, Chip, Progress, Avatar, Logo } from '../../components/AppShell.jsx';
+import { AppShell, PageHeader, Card, Chip, Avatar } from '../../components/AppShell.jsx';
 
-const avatars = [
-  'https://i.pravatar.cc/160?img=12','https://i.pravatar.cc/160?img=47','https://i.pravatar.cc/160?img=13','https://i.pravatar.cc/160?img=32','https://i.pravatar.cc/160?img=5'
-];
-const tutorFallback = [
-  {id:1, full_name:'Marc T.', headline:'Python · IA · Machine Learning', avg_rating:4.9, review_count:284, hourly_rate:25, avatar_url:avatars[0]},
-  {id:2, full_name:'Sophie L.', headline:'Mathématiques', avg_rating:4.8, review_count:197, hourly_rate:20, avatar_url:avatars[1]},
-  {id:3, full_name:'Thomas D.', headline:'Java · Spring Boot', avg_rating:4.7, review_count:210, hourly_rate:30, avatar_url:avatars[2]},
-  {id:4, full_name:'Amina K.', headline:'Physique · Mécanique', avg_rating:4.9, review_count:189, hourly_rate:22, avatar_url:avatars[3]},
-];
-const sessions = [
-  ['Python – Avancé','Marc T.','15 mai 2025 · 15:30','Confirmée',avatars[0]],
-  ['Mathématiques','Sophie L.','16 mai 2025 · 10:00','Confirmée',avatars[1]],
-  ['Java – Spring Boot','Thomas D.','17 mai 2025 · 14:00','À venir',avatars[2]],
-  ['Algo & Structures de données','Armin K.','18 mai 2025 · 11:00','À venir',avatars[4]],
-];
-const courses = [
-  {title:'Python pour débutants', mentor:'Marie T.', rating:'4,9', level:'Débutant', progress:65, tone:'python'},
-  {title:'Machine Learning', mentor:'Marc T.', rating:'4,8', level:'Intermédiaire', progress:30, tone:'ai'},
-  {title:'Algorithmes & Structures', mentor:'Sophie L.', rating:'4,7', level:'Intermédiaire', progress:80, tone:'code'},
-];
-const categories = ['Informatique','Mathématiques','Physique','Langues','Emploi & Carrière','Développement personnel','Data Science','Business'];
+const fallbackAvatar='https://i.pravatar.cc/160?img=12';
+const fmt=(d, opts)=>new Intl.DateTimeFormat('fr-FR',opts).format(new Date(d));
+const sizeLabel=(n)=>{n=Number(n)||0;if(!n)return'';return n<1024*1024?`${Math.round(n/1024)} Ko`:`${(n/1024/1024).toFixed(1)} Mo`}
 
-
-export default function SessionDetailPage(){return <AppShell><div className="page"><PageHeader title="Détail d’une session" back/><h1>Python – Programmation avancée</h1><div className="between"><div className="row gap"><Avatar src={avatars[0]}/><span>Avec Marc T.</span></div><Chip tone="green">✓ Confirmée</Chip></div><Card>{[['Date','15 mai 2025'],['Heure','15:30 – 16:30'],['Durée','1 heure'],['Mode','En ligne (Visioconférence)']].map(([a,b])=><div className="setting-row"><b>{a}</b><span>{b}</span></div>)}</Card><Card><h3>Objectif</h3><p>Approfondir les concepts avancés de Python et résoudre des exercices pratiques.</p></Card><Card><h3>Documents</h3>{['Exercice_test.pdf','Notes_cours.pdf'].map(f=><div className="file-row"><span className="file-icon">PDF</span><div className="grow"><b>{f}</b><p>1,2 Mo · PDF</p></div><span>↓</span></div>)}</Card><Link className="primary-btn full" to="/video-session">▣ Rejoindre la session</Link></div></AppShell>}
+export default function SessionDetailPage(){
+  const {id}=useParams();
+  const {token,user}=useAuth();
+  const [data,setData]=useState(null);
+  const [error,setError]=useState('');
+  useEffect(()=>{ if(token) api.getBooking(id,token).then(setData).catch(e=>setError(e.message)); },[id,token]);
+  const b=data?.booking;
+  const otherUserId=user?.id===b?.student_user_id?b?.tutor_user_id:b?.student_user_id;
+  const otherName=user?.id===b?.student_user_id?b?.tutor_name:b?.student_name;
+  return <AppShell><div className="page"><PageHeader title="Détail d’une session" back/>
+    {error&&<div className="admin-error">{error}</div>}
+    {!b ? <Card><p style={{padding:18}}>Chargement...</p></Card> : <>
+      <h1>{b.subject_name || b.tutor_headline || 'Session StudyLink'}</h1>
+      <div className="between"><div className="row gap"><Avatar src={b.tutor_avatar_url||fallbackAvatar}/><span>Avec {b.tutor_name}</span></div><Chip tone={b.status==='confirmed'?'green':'blue'}>{b.status}</Chip></div>
+      <Card>{[['Date',fmt(b.start_time,{dateStyle:'long'})],['Heure',`${fmt(b.start_time,{hour:'2-digit',minute:'2-digit'})} – ${fmt(b.end_time,{hour:'2-digit',minute:'2-digit'})}`],['Durée',`${Math.round((new Date(b.end_time)-new Date(b.start_time))/60000)} min`],['Mode','En ligne (visioconférence)'],['Tarif',`${Number(b.price||0).toFixed(2)} €`]].map(([a,v])=><div className="setting-row" key={a}><b>{a}</b><span>{v}</span></div>)}</Card>
+      {b.objective&&<Card><h3>Objectif</h3><p>{b.objective}</p></Card>}
+      <Card><h3>Documents de session</h3>{data.materials?.length?data.materials.map(f=><a className="file-row" href={f.file_url} target="_blank" rel="noreferrer" key={f.id}><span className="file-icon">DOC</span><div className="grow"><b>{f.file_name}</b><p>Ajouté le {fmt(f.created_at,{dateStyle:'medium'})}</p></div><span>Ouvrir</span></a>):<p>Aucun document de session pour le moment.</p>}</Card>
+      <div className="dual-actions"><Link className="outline-btn" to={`/messages/${otherUserId}?name=${encodeURIComponent(otherName||'Contact')}`}>Écrire à {otherName}</Link><Link className="primary-btn" to={`/video-session?booking=${b.id}`}>▣ Rejoindre la session</Link></div>
+    </>}
+  </div></AppShell>}
