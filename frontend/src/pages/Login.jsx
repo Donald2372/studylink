@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
-export default function Register() {
+export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', role: 'student' });
+  const location = useLocation();
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,9 +16,9 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      const { token, user } = await api.register(form);
+      const { token, user } = await api.login(form);
       login(token, user);
-      navigate('/search');
+      navigate(location.state?.from || '/search');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,40 +28,10 @@ export default function Register() {
 
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-6 py-12">
-      <h1 className="font-display text-3xl font-semibold text-ink">Créer un compte</h1>
-      <p className="mt-2 text-ink/60">Rejoignez Studylink en tant qu'élève ou tuteur.</p>
+      <h1 className="font-display text-3xl font-semibold text-ink">Bon retour parmi nous</h1>
+      <p className="mt-2 text-ink/60">Connectez-vous pour retrouver vos tuteurs et réservations.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { value: 'student', label: 'Je suis élève' },
-            { value: 'tutor', label: 'Je suis tuteur' },
-          ].map((opt) => (
-            <button
-              type="button"
-              key={opt.value}
-              onClick={() => setForm({ ...form, role: opt.value })}
-              className={`rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                form.role === opt.value
-                  ? 'border-brand-500 bg-brand-50 text-brand-700'
-                  : 'border-black/10 text-ink/60 hover:bg-black/5'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-ink/80">Nom complet</label>
-          <input
-            required
-            value={form.fullName}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-            className="w-full rounded-lg border border-black/10 px-4 py-2.5 outline-none transition focus:border-brand-500"
-            placeholder="Jean Dupont"
-          />
-        </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-ink/80">Email</label>
           <input
@@ -77,11 +48,10 @@ export default function Register() {
           <input
             type="password"
             required
-            minLength={6}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             className="w-full rounded-lg border border-black/10 px-4 py-2.5 outline-none transition focus:border-brand-500"
-            placeholder="6 caractères minimum"
+            placeholder="••••••••"
           />
         </div>
 
@@ -92,16 +62,24 @@ export default function Register() {
           disabled={loading}
           className="mt-2 rounded-lg bg-brand-500 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-brand-600 disabled:opacity-60"
         >
-          {loading ? 'Création du compte...' : 'Créer mon compte'}
+          {loading ? 'Connexion...' : 'Se connecter'}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-ink/60">
-        Déjà un compte ?{' '}
-        <Link to="/login" className="font-medium text-brand-600 hover:underline">
-          Se connecter
+        Pas encore de compte ?{' '}
+        <Link to="/register" className="font-medium text-brand-600 hover:underline">
+          Créer un compte
         </Link>
       </p>
+
+      <div className="mt-8 rounded-lg bg-brand-50 p-4 text-xs text-ink/60">
+        <strong className="text-ink/80">Comptes de démo :</strong>
+        <br />
+        Tuteur : emily.chen@studylink.com — Élève : student@studylink.com
+        <br />
+        Mot de passe : password123
+      </div>
     </div>
   );
 }
