@@ -4,9 +4,9 @@ const CONTENT_BUCKET = process.env.SUPABASE_CONTENT_BUCKET || 'studylink-content
 
 function requireStorageConfig() {
   const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    const error = new Error('Supabase Storage n’est pas configuré. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Render.');
+    const error = new Error('Supabase Storage n’est pas configuré. Ajoutez SUPABASE_URL et SUPABASE_SECRET_KEY (ou SUPABASE_SERVICE_ROLE_KEY) dans Render.');
     error.status = 503;
     throw error;
   }
@@ -29,14 +29,22 @@ export async function uploadBuffer({ buffer, originalName, mimeType, folder = 'u
   const objectPath = `${folder}/${Date.now()}-${crypto.randomUUID()}-${extName}`;
   const endpoint = `${url}/storage/v1/object/${CONTENT_BUCKET}/${objectPath}`;
 
+  // Les nouvelles clés Supabase `sb_secret_...` ne sont pas des JWT.
+  // Elles doivent être envoyées via `apikey` uniquement. Les anciennes clés
+  // `service_role` (JWT) restent compatibles avec Authorization: Bearer.
+  const headers = {
+    apikey: key,
+    'Content-Type': mimeType || 'application/octet-stream',
+    'x-upsert': 'false',
+  };
+
+  if (!key.startsWith('sb_secret_')) {
+    headers.Authorization = `Bearer ${key}`;
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': mimeType || 'application/octet-stream',
-      'x-upsert': 'false',
-    },
+    headers,
     body: buffer,
   });
 

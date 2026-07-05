@@ -37,6 +37,12 @@ export const api = {
     request(`/tutors/${id}/availability`, { method: 'POST', body: payload, token }),
 
   getSubjects: () => request('/subjects'),
+  getPublicMaterials: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+    ).toString();
+    return request(`/content/materials${qs ? `?${qs}` : ''}`);
+  },
   getTutorials: () => request('/content/tutorials'),
   getTutorial: (id) => request(`/content/tutorials/${id}`),
 
