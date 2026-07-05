@@ -1,13 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 async function request(path, { method = 'GET', body, token } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  const isFormData = body instanceof FormData;
+  const headers = {};
+  if (!isFormData) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
   const data = await res.json().catch(() => ({}));
@@ -67,4 +69,8 @@ export const api = {
   adminDeleteLesson: (id, token) => request(`/admin/lessons/${id}`, { method:'DELETE', token }),
   adminAddTutorialStep: (id, payload, token) => request(`/admin/tutorials/${id}/steps`, { method:'POST', body:payload, token }),
   adminAddProgramDay: (id, payload, token) => request(`/admin/personal-programs/${id}/days`, { method:'POST', body:payload, token }),
+  adminUpload: (kind, file, token) => { const form = new FormData(); form.append('file', file); return request(`/admin/uploads/${kind}`, { method:'POST', body:form, token }); },
+  adminAddCourseFile: (courseId, payload, token) => request(`/admin/courses/${courseId}/files`, { method:'POST', body:payload, token }),
+  adminCourseFiles: (courseId, token) => request(`/admin/courses/${courseId}/files`, { token }),
+  adminDeleteCourseFile: (id, token) => request(`/admin/course-files/${id}`, { method:'DELETE', token }),
 };

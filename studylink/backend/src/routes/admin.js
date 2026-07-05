@@ -1,9 +1,29 @@
 import { Router } from 'express';
 import { query, pool } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import multer from 'multer';
+import { uploadBuffer } from '../storage.js';
 
 const router = Router();
 router.use(requireRole('admin'));
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
+
+const uploadFolders = {
+  'course-cover': 'courses/covers',
+  'course-file': 'courses/files',
+  'book-cover': 'books/covers',
+  'book-file': 'books/files',
+  'tutorial-cover': 'tutorials/covers',
+  'bootcamp-cover': 'bootcamps/covers',
+  'personal-cover': 'personal-development/covers',
+  'entrepreneur-file': 'entrepreneurship/files',
+  'entrepreneur-cover': 'entrepreneurship/covers',
+  generic: 'uploads',
+};
 
 const slugify = (value='') => value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || `item-${Date.now()}`;
 const youtubeId = (url='') => {
@@ -23,7 +43,32 @@ const uniqueSlug = async (table, title, excludeId=null) => {
   }
 };
 const ok = (res, data, status=200) => res.status(status).json(data);
-const fail = (res, err, message='Erreur serveur') => { console.error(err); res.status(500).json({error:message}); };
+const fail = (res, err, message='Erreur serveur') => { console.error(err); res.status(err?.status || 500).json({error:err?.message || message}); };
+
+
+router.post('/uploads/:kind', upload.single('file'), async (req,res)=>{
+  try {
+    if (!req.file) return res.status(400).json({error:'Aucun fichier sélectionné.'});
+    const folder = uploadFolders[req.params.kind];
+    if (!folder) return res.status(400).json({error:'Type de fichier non autorisé.'});
+    const stored = await uploadBuffer({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      folder,
+    });
+    ok(res,{
+      upload:{
+        url: stored.publicUrl,
+        path: stored.path,
+        bucket: stored.bucket,
+        file_name: req.file.originalname,
+        mime_type: req.file.mimetype,
+        size: req.file.size,
+      }
+    },201);
+  } catch(e){ fail(res,e,'Échec de l’envoi du fichier.'); }
+});
 
 router.get('/dashboard', async (_req,res) => {
   try {
@@ -41,6 +86,9 @@ router.get('/courses', async (_req,res)=>{ try { const r=await query(`SELECT c.*
 router.post('/courses', async (req,res)=>{ try { const b=req.body; if(!b.title) return res.status(400).json({error:'Titre requis'}); const slug=await uniqueSlug('courses',b.title); const r=await query(`INSERT INTO courses(author_id,category_id,title,slug,short_description,description,cover_url,level,language,estimated_minutes,price,is_free,status,content_type,objectives,prerequisites,published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,CASE WHEN $13='published' THEN now() ELSE NULL END) RETURNING *`,[req.user.id,b.category_id||null,b.title,slug,b.short_description||'',b.description||'',b.cover_url||null,b.level||'beginner',b.language||'fr',Number(b.estimated_minutes)||0,Number(b.price)||0,b.is_free!==false,b.status||'draft',b.content_type||'course',b.objectives||[],b.prerequisites||[]]); ok(res,{course:r.rows[0]},201); } catch(e){fail(res,e)} });
 router.put('/courses/:id', async (req,res)=>{ try { const b=req.body; const slug=await uniqueSlug('courses',b.title,req.params.id); const r=await query(`UPDATE courses SET category_id=$1,title=$2,slug=$3,short_description=$4,description=$5,cover_url=$6,level=$7,language=$8,estimated_minutes=$9,price=$10,is_free=$11,status=$12,content_type=$13,objectives=$14,prerequisites=$15,published_at=CASE WHEN $12='published' AND published_at IS NULL THEN now() ELSE published_at END WHERE id=$16 RETURNING *`,[b.category_id||null,b.title,slug,b.short_description||'',b.description||'',b.cover_url||null,b.level||'beginner',b.language||'fr',Number(b.estimated_minutes)||0,Number(b.price)||0,b.is_free!==false,b.status||'draft',b.content_type||'course',b.objectives||[],b.prerequisites||[],req.params.id]); ok(res,{course:r.rows[0]}); } catch(e){fail(res,e)} });
 router.delete('/courses/:id', async (req,res)=>{ try { await query('DELETE FROM courses WHERE id=$1',[req.params.id]); ok(res,{ok:true}); } catch(e){fail(res,e)} });
+router.get('/courses/:id/files', async (req,res)=>{ try { const r=await query('SELECT * FROM course_files WHERE course_id=$1 ORDER BY created_at DESC',[req.params.id]); ok(res,{files:r.rows}); } catch(e){fail(res,e)} });
+router.post('/courses/:id/files', async (req,res)=>{ try { const b=req.body; if(!b.file_url) return res.status(400).json({error:'URL du fichier requise'}); const r=await query(`INSERT INTO course_files(course_id,uploaded_by,title,file_url,file_name,mime_type,file_size) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[req.params.id,req.user.id,b.title||b.file_name||'Fichier du cours',b.file_url,b.file_name||null,b.mime_type||null,Number(b.file_size)||null]); ok(res,{file:r.rows[0]},201); } catch(e){fail(res,e)} });
+router.delete('/course-files/:id', async (req,res)=>{ try { await query('DELETE FROM course_files WHERE id=$1',[req.params.id]); ok(res,{ok:true}); } catch(e){fail(res,e)} });
 router.get('/courses/:id/structure', async (req,res)=>{ try { const c=(await query('SELECT * FROM courses WHERE id=$1',[req.params.id])).rows[0]; const mods=(await query('SELECT * FROM course_modules WHERE course_id=$1 ORDER BY position',[req.params.id])).rows; for(const m of mods) m.lessons=(await query('SELECT * FROM lessons WHERE module_id=$1 ORDER BY position',[m.id])).rows; ok(res,{course:c,modules:mods}); } catch(e){fail(res,e)} });
 router.post('/courses/:id/modules', async (req,res)=>{ try { const b=req.body; const pos=b.position||Number((await query('SELECT COALESCE(MAX(position),0)+1 p FROM course_modules WHERE course_id=$1',[req.params.id])).rows[0].p); const r=await query('INSERT INTO course_modules(course_id,title,description,position) VALUES($1,$2,$3,$4) RETURNING *',[req.params.id,b.title,b.description||'',pos]); ok(res,{module:r.rows[0]},201); } catch(e){fail(res,e)} });
 router.delete('/modules/:id', async (req,res)=>{ try { await query('DELETE FROM course_modules WHERE id=$1',[req.params.id]); ok(res,{ok:true}); } catch(e){fail(res,e)} });
