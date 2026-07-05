@@ -24,3 +24,17 @@ export function requireRole(...roles) {
     next();
   };
 }
+
+// N'exige pas de token, mais renseigne req.user s'il y en a un de valide.
+// Utile pour les pages publiques qui se personnalisent quand on est connecté.
+export function optionalAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    try {
+      req.user = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    } catch {
+      // token invalide : on ignore, l'utilisateur est traité comme non connecté
+    }
+  }
+  next();
+}
