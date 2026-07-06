@@ -78,6 +78,15 @@ export const api = {
   },
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
 
+  startCall: (payload, token) => request('/calls', { method:'POST', body:payload, token }),
+  getIncomingCall: (token) => request('/calls/incoming', { token }),
+  getCall: (id, token) => request(`/calls/${id}`, { token }),
+  acceptCall: (id, token) => request(`/calls/${id}/accept`, { method:'POST', token }),
+  rejectCall: (id, token) => request(`/calls/${id}/reject`, { method:'POST', token }),
+  endCall: (id, token) => request(`/calls/${id}/end`, { method:'POST', token }),
+  sendCallSignal: (id, type, payload, token) => request(`/calls/${id}/signals`, { method:'POST', body:{ type, payload }, token }),
+  getCallSignals: (id, after, token) => request(`/calls/${id}/signals?after=${after || 0}`, { token }),
+
   searchUsers: (q, token) => request(`/messages/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, { token }),
   getForumCategories: () => request('/content/forum/categories'),
   getForumTopics: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/forum/topics${qs ? `?${qs}` : ''}`); },

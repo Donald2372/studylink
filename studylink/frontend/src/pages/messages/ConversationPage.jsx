@@ -20,6 +20,7 @@ export default function ConversationPage() {
   const [loading,setLoading]=useState(true);
   const [sending,setSending]=useState(false);
   const [error,setError]=useState('');
+  const [calling,setCalling]=useState(false);
 
   const load=async()=>{
     if(!token)return;
@@ -44,8 +45,20 @@ export default function ConversationPage() {
     }catch(e){setError(e.message)}finally{setSending(false)}
   }
 
+
+  async function startCall(callType='video'){
+    if(!token||calling)return;
+    setCalling(true);setError('');
+    try{
+      const data=await api.startCall({calleeId:id,callType},token);
+      nav(`/calls/${data.call.id}`);
+    }catch(e){
+      if(e.message?.includes('déjà en cours')){ setError(e.message); } else setError(e.message);
+    }finally{setCalling(false)}
+  }
+
   return <AppShell><div className="page conversation-page">
-    <div className="chat-header"><button onClick={()=>nav(-1)}>←</button><Avatar src={fallbackAvatar}/><div className="grow"><h2>{name}</h2><p>Conversation privée</p></div><span>☎ ⋮</span></div>
+    <div className="chat-header"><button onClick={()=>nav(-1)}>←</button><Avatar src={fallbackAvatar}/><div className="grow"><h2>{name}</h2><p>Conversation privée</p></div><div className="chat-call-actions"><button title="Appel audio" onClick={()=>startCall('audio')} disabled={calling}>☎</button><button title="Appel vidéo" onClick={()=>startCall('video')} disabled={calling}>📹</button><button>⋮</button></div></div>
     {error&&<div className="admin-error" style={{margin:12}}>{error}</div>}
     <div className="chat-body"><span className="day-pill">Aujourd’hui</span>
       {loading ? <p>Chargement...</p> : messages.map((m)=>{

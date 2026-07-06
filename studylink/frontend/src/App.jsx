@@ -8,6 +8,7 @@ import ReservePage from './pages/sessions/ReservePage.jsx';
 import BookingsPage from './pages/sessions/BookingsPage.jsx';
 import SessionDetailPage from './pages/sessions/SessionDetailPage.jsx';
 import VideoSessionPage from './pages/sessions/VideoSessionPage.jsx';
+import CallPage from './pages/sessions/CallPage.jsx';
 import MaterialsPage from './pages/materials/MaterialsPage.jsx';
 import ForumPage from './pages/community/ForumPage.jsx';
 import MessagesPage from './pages/messages/MessagesPage.jsx';
@@ -51,6 +52,7 @@ export default function App(){return <Routes>
   <Route path="/bookings" element={<BookingsPage/>}/>
   <Route path="/session/:id" element={<SessionDetailPage/>}/>
   <Route path="/video-session" element={<VideoSessionPage/>}/>
+  <Route path="/calls/:id" element={<CallPage/>}/>
   <Route path="/materials" element={<MaterialsPage/>}/>
   <Route path="/forum" element={<ForumPage/>}/>
   <Route path="/messages" element={<MessagesPage/>}/>

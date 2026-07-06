@@ -11,6 +11,7 @@ import materialRoutes from './routes/materials.js';
 import messageRoutes from './routes/messages.js';
 import adminRoutes from './routes/admin.js';
 import contentRoutes from './routes/content.js';
+import callRoutes from './routes/calls.js';
 import { requireAuth } from './middleware/auth.js';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/bookings', requireAuth, bookingRoutes);
 app.use('/api/reviews', requireAuth, reviewRoutes);
 app.use('/api/materials', requireAuth, materialRoutes);
 app.use('/api/messages', requireAuth, messageRoutes);
+app.use('/api/calls', requireAuth, callRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
