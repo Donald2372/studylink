@@ -146,6 +146,7 @@ router.post('/:id/signals', async (req, res) => {
 
 router.get('/:id/signals', async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
     const call = await getCall(req.params.id, req.user.id);
     if (!call) return res.status(404).json({ error: 'Appel introuvable.' });
     const after = Number(req.query.after || 0);
