@@ -24,6 +24,11 @@ export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: payload }),
   login: (payload) => request('/auth/login', { method: 'POST', body: payload }),
   me: (token) => request('/auth/me', { token }),
+  updateProfile: (payload, token) => request('/auth/profile', { method:'PATCH', body:payload, token }),
+  changeEmail: (payload, token) => request('/auth/email', { method:'PATCH', body:payload, token }),
+  changePassword: (payload, token) => request('/auth/password', { method:'PATCH', body:payload, token }),
+  uploadAvatar: (file, token) => { const form=new FormData(); form.append('avatar',file); return request('/auth/avatar',{method:'POST',body:form,token}); },
+  deleteAvatar: (token) => request('/auth/avatar',{method:'DELETE',token}),
 
   searchTutors: (params = {}) => {
     const qs = new URLSearchParams(
@@ -78,6 +83,7 @@ export const api = {
   },
   getUnreadCount: (token) => request('/messages/unread-count', { token }),
 
+  getCallIceConfig: (token) => request('/calls/ice-config', { token }),
   startCall: (payload, token) => request('/calls', { method:'POST', body:payload, token }),
   getIncomingCall: (token) => request('/calls/incoming', { token }),
   getCall: (id, token) => request(`/calls/${id}`, { token }),

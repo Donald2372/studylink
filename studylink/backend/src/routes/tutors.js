@@ -7,8 +7,7 @@ const router = Router();
 // Recherche/filtrage des tuteurs, reproduisant les filtres de la maquette Studylink
 router.get('/', async (req, res) => {
   try {
-    const { subject, minPrice, maxPrice, masteryLevel, search } = req.query;
-
+    const { subject, minPrice, maxPrice, masteryLevel, search, availableOn } = req.query;
     const conditions = [];
     const params = [];
     let i = 1;
@@ -19,6 +18,8 @@ router.get('/', async (req, res) => {
         u.id AS user_id,
         u.full_name,
         u.avatar_url,
+        u.city,
+        u.country,
         tp.headline,
         tp.hourly_rate,
         tp.mastery_level,
@@ -34,38 +35,43 @@ router.get('/', async (req, res) => {
     `;
 
     if (subject) {
-      conditions.push(`tp.id IN (
-        SELECT ts2.tutor_id FROM tutor_subjects ts2
-        JOIN subjects s2 ON s2.id = ts2.subject_id
-        WHERE s2.name = $${i++}
-      )`);
+      conditions.push(`tp.id IN (SELECT ts2.tutor_id FROM tutor_subjects ts2 JOIN subjects s2 ON s2.id = ts2.subject_id WHERE s2.name = $${i++})`);
       params.push(subject);
     }
-    if (minPrice) {
-      conditions.push(`tp.hourly_rate >= $${i++}`);
-      params.push(minPrice);
-    }
-    if (maxPrice) {
-      conditions.push(`tp.hourly_rate <= $${i++}`);
-      params.push(maxPrice);
-    }
-    if (masteryLevel) {
-      conditions.push(`tp.mastery_level = $${i++}`);
-      params.push(masteryLevel);
-    }
+    if (minPrice) { conditions.push(`tp.hourly_rate >= $${i++}`); params.push(minPrice); }
+    if (maxPrice) { conditions.push(`tp.hourly_rate <= $${i++}`); params.push(maxPrice); }
+    if (masteryLevel) { conditions.push(`tp.mastery_level = $${i++}`); params.push(masteryLevel); }
     if (search) {
-      conditions.push(`u.full_name ILIKE $${i++}`);
-      params.push(`%${search}%`);
+      conditions.push(`(u.full_name ILIKE $${i} OR tp.headline ILIKE $${i} OR EXISTS (SELECT 1 FROM tutor_subjects ts3 JOIN subjects s3 ON s3.id=ts3.subject_id WHERE ts3.tutor_id=tp.id AND s3.name ILIKE $${i}))`);
+      params.push(`%${search}%`); i += 1;
     }
-
-    if (conditions.length > 0) {
-      sql += ' WHERE ' + conditions.join(' AND ');
+    if (availableOn) {
+      conditions.push(`EXISTS (SELECT 1 FROM availability_slots av WHERE av.tutor_id=tp.id AND av.status='available' AND av.start_time::date = $${i++}::date)`);
+      params.push(availableOn);
     }
-
-    sql += ' GROUP BY tp.id, u.id ORDER BY avg_rating DESC NULLS LAST';
+    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    sql += ' GROUP BY tp.id, u.id ORDER BY avg_rating DESC NULLS LAST, u.full_name ASC';
 
     const result = await query(sql, params);
-    res.json({ tutors: result.rows });
+    const tutorIds = result.rows.map((row) => row.tutor_id);
+    let slotsByTutor = new Map();
+    if (tutorIds.length) {
+      const slotsResult = await query(
+        `SELECT id, tutor_id, start_time, end_time, status
+         FROM availability_slots
+         WHERE tutor_id = ANY($1::uuid[])
+           AND start_time >= date_trunc('day', NOW())
+           AND start_time < date_trunc('day', NOW()) + INTERVAL '8 days'
+         ORDER BY start_time ASC`,
+        [tutorIds]
+      );
+      slotsByTutor = slotsResult.rows.reduce((map, slot) => {
+        const rows = map.get(slot.tutor_id) || [];
+        rows.push(slot); map.set(slot.tutor_id, rows); return map;
+      }, new Map());
+    }
+
+    res.json({ tutors: result.rows.map((row) => ({ ...row, slots: slotsByTutor.get(row.tutor_id) || [] })) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur lors de la recherche des tuteurs.' });

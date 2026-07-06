@@ -17,6 +17,74 @@ async function getCall(callId, userId) {
   return result.rows[0] || null;
 }
 
+
+
+router.get('/ice-config', async (req, res) => {
+  try {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+    if (accountSid && authToken) {
+      const ttl = Math.max(300, Math.min(Number(process.env.TWILIO_TURN_TTL || 3600), 86400));
+      const body = new URLSearchParams({ Ttl: String(ttl) });
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Tokens.json`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body,
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error('Twilio TURN token error', response.status, data);
+        return res.status(502).json({
+          error: 'Impossible de récupérer la configuration TURN.',
+          provider: 'twilio',
+        });
+      }
+
+      return res.json({
+        provider: 'twilio',
+        ttl: Number(data.ttl || ttl),
+        iceServers: data.ice_servers || [],
+      });
+    }
+
+    // Fallback: TURN statique configuré côté serveur.
+    const turnUrl = process.env.TURN_URL;
+    const turnUsername = process.env.TURN_USERNAME;
+    const turnCredential = process.env.TURN_CREDENTIAL;
+    if (turnUrl && turnUsername && turnCredential) {
+      const urls = turnUrl.split(',').map(v => v.trim()).filter(Boolean);
+      return res.json({
+        provider: 'static',
+        iceServers: [
+          { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+          { urls, username: turnUsername, credential: turnCredential },
+        ],
+      });
+    }
+
+    return res.json({
+      provider: 'stun-only',
+      warning: 'Aucun serveur TURN configuré.',
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      ],
+    });
+  } catch (err) {
+    console.error('ICE config error', err);
+    res.status(500).json({ error: 'Impossible de charger la configuration réseau de l’appel.' });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const { calleeId, bookingId = null, callType = 'video' } = req.body || {};

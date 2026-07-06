@@ -136,3 +136,6 @@ Fonctionnalités interactives ajoutées :
 - filtres et lecture des notifications.
 
 Les API historiques (auth, tuteurs, réservations, messages, documents) restent conservées et continuent d'être utilisées quand le backend est disponible.
+
+## Profil utilisateur enrichi
+Exécutez `backend/migrations/008_user_profiles.sql` pour activer les informations personnelles, préférences, biographie et photo de profil.

@@ -18,8 +18,7 @@ function buildIceServers() {
   return servers;
 }
 
-const rtcConfig = {
-  iceServers: buildIceServers(),
+const baseRtcConfig = {
   iceCandidatePoolSize: 10,
   bundlePolicy: 'max-bundle',
 };
@@ -211,7 +210,18 @@ export default function CallPage() {
       localVideo.current.play().catch(() => {});
     }
 
-    const pc = new RTCPeerConnection(rtcConfig);
+    let iceServers = buildIceServers();
+    try {
+      const iceData = await api.getCallIceConfig(token);
+      if (Array.isArray(iceData?.iceServers) && iceData.iceServers.length) {
+        iceServers = iceData.iceServers;
+        setDebugState(iceData.provider === 'twilio' ? 'TURN sécurisé chargé' : `Réseau: ${iceData.provider || 'configuré'}`);
+      }
+    } catch (e) {
+      console.warn('Configuration TURN indisponible, fallback STUN', e);
+    }
+
+    const pc = new RTCPeerConnection({ ...baseRtcConfig, iceServers });
     pcRef.current = pc;
     remoteStreamRef.current = new MediaStream();
 
@@ -247,7 +257,13 @@ export default function CallPage() {
       if (state === 'checking') setStatus('Connexion des médias…');
       if (state === 'failed') {
         setStatus('Connexion média impossible');
-        setError('La connexion directe a échoué. Configure un serveur TURN pour les réseaux stricts.');
+        const hasTurn = iceServers.some(server => {
+          const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+          return urls.some(url => String(url || '').startsWith('turn:') || String(url || '').startsWith('turns:'));
+        });
+        setError(hasTurn
+          ? 'La connexion TURN a échoué. Vérifie les identifiants TURN et les journaux Render.'
+          : 'La connexion directe a échoué. Aucun serveur TURN n’est configuré sur le backend.');
       }
     };
 
