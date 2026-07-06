@@ -97,6 +97,44 @@ router.post('/seed/python-course', async (_req,res)=>{
   } catch(e){fail(res,e,'Impossible d’installer le cours Python complet.');}
 });
 
+
+router.post('/seed/full-catalogue', async (_req,res)=>{
+  try {
+    const baseUrl = new URL('../../migrations/010_full_catalogue_content.sql', import.meta.url);
+    const completeUrl = new URL('../../migrations/011_complete_all_catalogue_courses.sql', import.meta.url);
+    const baseSql = await fs.readFile(baseUrl, 'utf8');
+    const completeSql = await fs.readFile(completeUrl, 'utf8');
+    await pool.query(baseSql);
+    await pool.query(completeSql);
+    const summary = (await query(`SELECT COUNT(*)::int AS course_count,
+      COALESCE(SUM(module_count),0)::int AS module_count,
+      COALESCE(SUM(lesson_count),0)::int AS lesson_count
+      FROM (
+        SELECT c.id,
+          (SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) AS module_count,
+          (SELECT COUNT(*) FROM lessons l JOIN course_modules m ON m.id=l.module_id WHERE m.course_id=c.id) AS lesson_count
+        FROM courses c WHERE c.status='published'
+      ) x`)).rows[0];
+    ok(res,{summary},201);
+  } catch(e){fail(res,e,'Impossible d’installer les formations complètes du catalogue.');}
+});
+
+
+router.post('/seed/personal-development', async (_req,res)=>{
+  try {
+    const migrationUrl = new URL('../../migrations/012_complete_personal_development.sql', import.meta.url);
+    const sql = await fs.readFile(migrationUrl, 'utf8');
+    await pool.query(sql);
+    const summary = (await query(`SELECT
+      (SELECT COUNT(*) FROM personal_programs WHERE status='published')::int AS program_count,
+      (SELECT COUNT(*) FROM personal_program_days)::int AS day_count,
+      (SELECT COUNT(*) FROM personal_program_tasks)::int AS task_count,
+      (SELECT COUNT(*) FROM books WHERE status='published')::int AS book_count,
+      (SELECT COUNT(*) FROM book_chapters)::int AS chapter_count`)).rows[0];
+    ok(res,{summary},201);
+  } catch(e){ fail(res,e,'Impossible d’installer le module Développement personnel complet.'); }
+});
+
 router.get('/courses', async (_req,res)=>{ try { const r=await query(`SELECT c.*,lc.name category_name,u.full_name author_name,(SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) module_count FROM courses c LEFT JOIN learning_categories lc ON lc.id=c.category_id LEFT JOIN users u ON u.id=c.author_id ORDER BY c.created_at DESC`); ok(res,{courses:r.rows}); } catch(e){fail(res,e,'Les tables de cours ne sont pas encore installées. Exécutez la migration SQL.')} });
 router.post('/courses', async (req,res)=>{ try { const b=req.body; if(!b.title) return res.status(400).json({error:'Titre requis'}); const slug=await uniqueSlug('courses',b.title); const r=await query(`INSERT INTO courses(author_id,category_id,title,slug,short_description,description,cover_url,level,language,estimated_minutes,price,is_free,status,content_type,objectives,prerequisites,published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,CASE WHEN $13::varchar='published' THEN now() ELSE NULL END) RETURNING *`,[req.user.id,b.category_id||null,b.title,slug,b.short_description||'',b.description||'',b.cover_url||null,b.level||'beginner',b.language||'fr',Number(b.estimated_minutes)||0,Number(b.price)||0,b.is_free!==false,b.status||'draft',b.content_type||'course',b.objectives||[],b.prerequisites||[]]); ok(res,{course:r.rows[0]},201); } catch(e){fail(res,e)} });
 router.put('/courses/:id', async (req,res)=>{ try { const b=req.body; const slug=await uniqueSlug('courses',b.title,req.params.id); const r=await query(`UPDATE courses SET category_id=$1,title=$2,slug=$3,short_description=$4,description=$5,cover_url=$6,level=$7,language=$8,estimated_minutes=$9,price=$10,is_free=$11,status=$12,content_type=$13,objectives=$14,prerequisites=$15,published_at=CASE WHEN $12::varchar='published' AND published_at IS NULL THEN now() ELSE published_at END WHERE id=$16 RETURNING *`,[b.category_id||null,b.title,slug,b.short_description||'',b.description||'',b.cover_url||null,b.level||'beginner',b.language||'fr',Number(b.estimated_minutes)||0,Number(b.price)||0,b.is_free!==false,b.status||'draft',b.content_type||'course',b.objectives||[],b.prerequisites||[],req.params.id]); ok(res,{course:r.rows[0]}); } catch(e){fail(res,e)} });

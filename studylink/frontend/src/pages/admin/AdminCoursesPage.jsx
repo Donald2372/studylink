@@ -11,6 +11,7 @@ export default function AdminCoursesPage() {
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [seedingAll, setSeedingAll] = useState(false);
   const [success, setSuccess] = useState('');
 
   const load = () => api.adminList('courses', token)
@@ -48,13 +49,25 @@ export default function AdminCoursesPage() {
     finally { setSeeding(false); }
   }
 
+
+  async function installFullCatalogue() {
+    setSeedingAll(true); setErr(''); setSuccess('');
+    try {
+      const result = await api.adminSeedFullCatalogue(token);
+      const summary = result.summary || {};
+      setSuccess(`Catalogue complet installé : ${summary.course_count || 32} cours, ${summary.module_count || 160} modules et ${summary.lesson_count || 640} leçons.`);
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSeedingAll(false); }
+  }
+
   const filtered = items.filter((x) => x.title.toLowerCase().includes(q.toLowerCase()));
 
   return <>
     <AdminHeader
       title="Cours"
       subtitle="Créez, structurez et publiez vos formations"
-      action={<div className="admin-header-actions"><button className="admin-btn secondary" onClick={installPythonCourse} disabled={seeding}>{seeding ? 'Installation...' : '⚡ Installer le cours Python complet'}</button><Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link></div>}
+      action={<div className="admin-header-actions"><button className="admin-btn secondary" onClick={installFullCatalogue} disabled={seedingAll}>{seedingAll ? 'Installation du catalogue...' : '⚡ Installer les 32 formations complètes'}</button><button className="admin-btn secondary" onClick={installPythonCourse} disabled={seeding}>{seeding ? 'Installation...' : 'Python complet'}</button><Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link></div>}
     />
 
     <div className="admin-toolbar">
@@ -94,7 +107,7 @@ export default function AdminCoursesPage() {
     </div>
 
     <div className="admin-upload-note" style={{ marginTop: 16 }}>
-      <b>Installation rapide :</b> le bouton « Installer le cours Python complet » crée ou met à jour un vrai parcours de 6 modules et 18 leçons avec vidéos YouTube intégrées, exercices et ressources officielles. Un cours en <b>Brouillon</b> reste invisible pour le public ; cliquez sur <b>Publier</b> pour l’afficher.
+      <b>Installation rapide :</b> le bouton « Installer les 32 formations complètes » crée ou met à jour l’ensemble du catalogue avec 5 modules et 20 leçons par cours, soit 640 leçons suivables de bout en bout. Le bouton Python reste disponible pour réinstaller uniquement ce parcours. Un cours en <b>Brouillon</b> reste invisible pour le public ; cliquez sur <b>Publier</b> pour l’afficher.
     </div>
   </>;
 }

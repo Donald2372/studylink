@@ -18,6 +18,7 @@ import CataloguePage from './pages/learning/CataloguePage.jsx';
 import CourseDetailPage from './pages/learning/CourseDetailPage.jsx';
 import CourseModulesPage from './pages/learning/CourseModulesPage.jsx';
 import LessonPage from './pages/learning/LessonPage.jsx';
+import CourseCertificatePage from './pages/learning/CourseCertificatePage.jsx';
 import TutorialPage from './pages/learning/TutorialPage.jsx';
 import BootcampsPage from './pages/bootcamps/BootcampsPage.jsx';
 import CareerPrepPage from './pages/career/CareerPrepPage.jsx';
@@ -25,6 +26,7 @@ import PersonalDevelopmentPage from './pages/personal-development/PersonalDevelo
 import PersonalProgramPage from './pages/personal-development/PersonalProgramPage.jsx';
 import PersonalBooksPage from './pages/personal-development/PersonalBooksPage.jsx';
 import BookReaderPage from './pages/personal-development/BookReaderPage.jsx';
+import HabitsPage from './pages/personal-development/HabitsPage.jsx';
 import EntrepreneurshipPage from './pages/entrepreneurship/EntrepreneurshipPage.jsx';
 import BusinessPlanCoursePage from './pages/entrepreneurship/BusinessPlanCoursePage.jsx';
 import EntrepreneurToolkitPage from './pages/entrepreneurship/EntrepreneurToolkitPage.jsx';
@@ -62,6 +64,7 @@ export default function App(){return <Routes>
   <Route path="/courses/:id" element={<CourseDetailPage/>}/>
   <Route path="/courses/:id/modules" element={<CourseModulesPage/>}/>
   <Route path="/lessons/:id" element={<LessonPage/>}/>
+  <Route path="/courses/:id/certificate" element={<CourseCertificatePage/>}/>
   <Route path="/tutorials/:id" element={<TutorialPage/>}/>
   <Route path="/bootcamps" element={<BootcampsPage/>}/>
   <Route path="/career-prep" element={<CareerPrepPage/>}/>
@@ -69,6 +72,7 @@ export default function App(){return <Routes>
   <Route path="/personal-development/programs/:id" element={<PersonalProgramPage/>}/>
   <Route path="/personal-development/books" element={<PersonalBooksPage/>}/>
   <Route path="/personal-development/books/:id" element={<BookReaderPage/>}/>
+  <Route path="/personal-development/habits" element={<HabitsPage/>}/>
   <Route path="/entrepreneurship" element={<EntrepreneurshipPage/>}/>
   <Route path="/entrepreneurship/business-plan" element={<BusinessPlanCoursePage/>}/>
   <Route path="/entrepreneurship/toolkit" element={<EntrepreneurToolkitPage/>}/>

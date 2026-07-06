@@ -46,7 +46,9 @@ export default function CourseModulesPage(){
 
     <div className="course-outline-actions">
       {learning.enrollment
-        ? <Link className="primary-btn" to={nextLesson?`/lessons/${nextLesson.id}?course=${encodeURIComponent(id)}`:'#'}>▶ Continuer où j’en suis</Link>
+        ? (percent >= 100
+          ? <Link className="primary-btn success-btn" to={`/courses/${id}/certificate`}>Certificat de réussite</Link>
+          : <Link className="primary-btn" to={nextLesson?`/lessons/${nextLesson.id}?course=${encodeURIComponent(id)}`:'#'}>▶ Continuer où j’en suis</Link>)
         : <button className="primary-btn" onClick={enroll} disabled={busy}>{busy?'Inscription...':'Commencer le cours'}</button>}
       <Link className="outline-btn" to={`/courses/${id}`}>Voir les détails</Link>
     </div>

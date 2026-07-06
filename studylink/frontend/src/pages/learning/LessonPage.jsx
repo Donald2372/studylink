@@ -26,10 +26,13 @@ export default function LessonPage(){
   const [note,setNote]=useState('');
   const [savingNote,setSavingNote]=useState(false);
   const [error,setError]=useState('');
+  const [exerciseChecks,setExerciseChecks]=useState([false,false,false]);
+  const [quizAnswers,setQuizAnswers]=useState(['','','']);
 
   const fallback=courseId===PYTHON_COURSE_SLUG||courseId==='demo-python';
   useEffect(()=>{api.getCourse(courseId).then(setData).catch(e=>{if(fallback)setData(pythonCourseFallback);else setError(e.message)})},[courseId,fallback]);
   useEffect(()=>{if(token&&data)api.getCourseLearning(courseId,token).then(r=>{setLearning(r);const existing=(r.notes||[]).find(n=>String(n.lesson_id)===String(id));setNote(existing?.content||'')}).catch(()=>{})},[courseId,id,token,data]);
+  useEffect(()=>{setExerciseChecks([false,false,false]);setQuizAnswers(['','','']);setTab('Résumé')},[id]);
 
   const flat=useMemo(()=>flattenCourseLessons(data||{modules:[]}),[data]);
   const lesson=flat.find(l=>String(l.id)===String(id));
@@ -67,7 +70,26 @@ export default function LessonPage(){
         {tab==='Résumé'&&<div className="course-panel lesson-copy"><h2>Dans cette leçon</h2>{renderContent(lesson.content||'Le contenu complémentaire de cette leçon sera bientôt disponible.')}{done&&<div className="lesson-success">✓ Cette leçon est terminée et enregistrée dans votre progression.</div>}</div>}
         {tab==='Notes'&&<div className="course-panel"><div className="between"><div><h2>Mes notes personnelles</h2><p>Vos notes sont privées et liées à votre compte.</p></div><button className="primary-btn" onClick={saveNote} disabled={savingNote}>{savingNote?'Enregistrement...':'Enregistrer'}</button></div><textarea className="lesson-note-editor" rows="12" value={note} onChange={e=>setNote(e.target.value)} placeholder="Écrivez ici ce que vous voulez retenir, une question à poser au tuteur, un extrait de code..."/></div>}
         {tab==='Ressources'&&<div className="course-panel"><h2>Ressources de la leçon</h2>{lesson.resources?.length?<div className="course-resource-grid">{lesson.resources.map(r=><a key={r.id} className="course-resource-card" href={r.url} target="_blank" rel="noreferrer"><span>↗</span><div><b>{r.title}</b><small>{r.resource_type||'Lien'}</small></div><strong>Ouvrir</strong></a>)}</div>:<p>Aucune ressource spécifique n’a été ajoutée à cette leçon.</p>}</div>}
-        {tab==='Exercices'&&<div className="course-panel lesson-exercise-panel"><h2>Passer à la pratique</h2><p>{lesson.lesson_type==='exercise'?lesson.content:'Reproduisez l’exemple de la leçon sans copier, puis modifiez une valeur ou ajoutez une fonctionnalité.'}</p><div className="exercise-checklist"><label><input type="checkbox"/> J’ai reproduit l’exemple</label><label><input type="checkbox"/> J’ai testé une variante</label><label><input type="checkbox"/> J’ai compris les erreurs rencontrées</label></div></div>}
+        {tab==='Exercices'&&<div className="course-panel lesson-exercise-panel">
+          <h2>{lesson.lesson_type==='quiz'?'Quiz de validation':'Passer à la pratique'}</h2>
+          {lesson.lesson_type==='quiz' ? <>
+            <p>Répondez honnêtement à ces trois questions. Le but est de vérifier votre autonomie avant de continuer.</p>
+            <div className="lesson-quiz-list">
+              {[
+                'Pouvez-vous expliquer le concept principal sans relire la leçon ?',
+                'Pouvez-vous appliquer la méthode sur un exemple différent ?',
+                'Savez-vous identifier et corriger une erreur fréquente ?'
+              ].map((question,i)=><div className="lesson-quiz-question" key={question}><b>{i+1}. {question}</b><div><button className={quizAnswers[i]==='yes'?'active':''} onClick={()=>setQuizAnswers(a=>a.map((v,j)=>j===i?'yes':v))}>Oui</button><button className={quizAnswers[i]==='notyet'?'active':''} onClick={()=>setQuizAnswers(a=>a.map((v,j)=>j===i?'notyet':v))}>Pas encore</button></div></div>)}
+            </div>
+            <button className="primary-btn" disabled={quizAnswers.some(a=>!a)} onClick={complete}>{done?'Quiz validé ✓':'Valider mon auto-évaluation'}</button>
+          </> : <>
+            <p>{lesson.lesson_type==='exercise'?lesson.content:'Reproduisez l’exemple de la leçon sans copier, puis modifiez une valeur ou ajoutez une fonctionnalité.'}</p>
+            <div className="exercise-checklist">
+              {['J’ai reproduit l’exemple','J’ai testé une variante','J’ai compris les erreurs rencontrées'].map((label,i)=><label key={label}><input type="checkbox" checked={exerciseChecks[i]} onChange={e=>setExerciseChecks(a=>a.map((v,j)=>j===i?e.target.checked:v))}/> {label}</label>)}
+            </div>
+            <button className="primary-btn" disabled={!exerciseChecks.every(Boolean)} onClick={complete}>{done?'Activité validée ✓':'Valider l’activité'}</button>
+          </>}
+        </div>}
       </main>
       <aside className="lesson-side-panel">
         <div className="course-panel"><h3>Progression</h3><div className="course-progress-circle" style={{'--progress':`${(done?100:Number(progress?.progress_percent||0))*3.6}deg`}}><strong>{done?100:Math.round(Number(progress?.progress_percent||0))}%</strong></div><button className={`primary-btn full ${done?'success-btn':''}`} onClick={complete}>{done?'Terminée ✓':'Marquer comme terminée'}</button></div>
@@ -75,6 +97,6 @@ export default function LessonPage(){
       </aside>
     </section>
 
-    <div className="lesson-navigation"><Link className={`outline-btn ${!prev?'disabled-link':''}`} to={prev?`/lessons/${prev.id}?course=${encodeURIComponent(courseId)}`:`/courses/${courseId}/modules`}>← {prev?'Leçon précédente':'Programme'}</Link><Link className="outline-btn" to={`/courses/${courseId}/modules`}>☰ Programme</Link>{next?<Link className="primary-btn" to={`/lessons/${next.id}?course=${encodeURIComponent(courseId)}`}>Leçon suivante →</Link>:<Link className="primary-btn" to={`/courses/${courseId}`}>Terminer le parcours ✓</Link>}</div>
+    <div className="lesson-navigation"><Link className={`outline-btn ${!prev?'disabled-link':''}`} to={prev?`/lessons/${prev.id}?course=${encodeURIComponent(courseId)}`:`/courses/${courseId}/modules`}>← {prev?'Leçon précédente':'Programme'}</Link><Link className="outline-btn" to={`/courses/${courseId}/modules`}>☰ Programme</Link>{next?<Link className="primary-btn" to={`/lessons/${next.id}?course=${encodeURIComponent(courseId)}`}>Leçon suivante →</Link>:<Link className="primary-btn" to={`/courses/${courseId}`}>Voir mon bilan final ✓</Link>}</div>
   </div></AppShell>
 }

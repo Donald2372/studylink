@@ -112,8 +112,10 @@ export default function CourseDetailPage() {
 
       {learning.enrollment && <section className="course-progress-banner">
         <div className="course-progress-circle" style={{ '--progress': `${progressPercent * 3.6}deg` }}><strong>{progressPercent}%</strong></div>
-        <div className="grow"><div className="between"><div><b>Votre progression</b><p>{completedCount} leçon(s) terminée(s) sur {lessons.length}</p></div><span>{learning.enrollment.status === 'completed' ? 'Cours terminé ✓' : 'En cours'}</span></div><Progress value={progressPercent}/></div>
-        {nextLesson && <Link className="primary-btn" to={`/lessons/${nextLesson.id}?course=${encodeURIComponent(id)}`}>Continuer →</Link>}
+        <div className="grow"><div className="between"><div><b>Votre progression</b><p>{completedCount} leçon(s) terminée(s) sur {lessons.length}</p></div><span>{progressPercent >= 100 ? 'Cours terminé ✓' : 'En cours'}</span></div><Progress value={progressPercent}/></div>
+        {progressPercent >= 100
+          ? <Link className="primary-btn success-btn" to={`/courses/${id}/certificate`}>Obtenir mon certificat</Link>
+          : nextLesson && <Link className="primary-btn" to={`/lessons/${nextLesson.id}?course=${encodeURIComponent(id)}`}>Continuer →</Link>}
       </section>}
 
       <nav className="course-detail-tabs">

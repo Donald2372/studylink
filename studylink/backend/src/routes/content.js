@@ -167,6 +167,53 @@ router.post('/lessons/:id/notes', requireAuth, async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+
+router.post('/courses/:id/certificate', requireAuth, async (req, res) => {
+  try {
+    const course = await resolvePublishedCourse(req.params.id);
+    if (!course) return res.status(404).json({ error: 'Cours introuvable.' });
+
+    const stats = (await query(`SELECT
+      COUNT(*)::int AS total,
+      COUNT(lp.lesson_id) FILTER (WHERE lp.status='completed')::int AS completed
+      FROM lessons l
+      JOIN course_modules cm ON cm.id=l.module_id
+      LEFT JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.user_id=$1
+      WHERE cm.course_id=$2`, [req.user.id, course.id])).rows[0];
+
+    if (!stats.total || Number(stats.completed) < Number(stats.total)) {
+      return res.status(400).json({ error: `Terminez les ${stats.total || 0} leçons avant d’obtenir le certificat.` });
+    }
+
+    let certificate = (await query(`SELECT * FROM certificates WHERE user_id=$1 AND course_id=$2 ORDER BY issued_at DESC LIMIT 1`,
+      [req.user.id, course.id])).rows[0];
+
+    if (!certificate) {
+      const code = `SL-${new Date().getFullYear()}-${course.id.slice(0,8).toUpperCase()}-${req.user.id.slice(0,8).toUpperCase()}`;
+      certificate = (await query(`INSERT INTO certificates(user_id,course_id,certificate_code,title)
+        VALUES($1,$2,$3,$4) RETURNING *`, [req.user.id, course.id, code, `Certificat de réussite — ${course.title}`])).rows[0];
+    }
+
+    await query(`UPDATE course_enrollments SET status='completed', progress_percent=100,
+      completed_at=COALESCE(completed_at,now()), updated_at=now()
+      WHERE user_id=$1 AND course_id=$2`, [req.user.id, course.id]);
+
+    ok(res, { certificate, course: { id: course.id, title: course.title } });
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/courses/:id/certificate', requireAuth, async (req, res) => {
+  try {
+    const course = await resolvePublishedCourse(req.params.id);
+    if (!course) return res.status(404).json({ error: 'Cours introuvable.' });
+    const certificate = (await query(`SELECT c.*, u.full_name AS learner_name
+      FROM certificates c JOIN users u ON u.id=c.user_id
+      WHERE c.user_id=$1 AND c.course_id=$2 ORDER BY c.issued_at DESC LIMIT 1`,
+      [req.user.id, course.id])).rows[0] || null;
+    ok(res, { certificate, course: { id: course.id, title: course.title, author_name: course.author_name } });
+  } catch (e) { fail(res, e); }
+});
+
 // -----------------------------------------------------------------------------
 // DOCUMENTS PUBLICS
 // -----------------------------------------------------------------------------
@@ -342,13 +389,16 @@ router.post('/bootcamps/:id/register', requireAuth, async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// DEVELOPPEMENT PERSONNEL / LIVRES
+// DEVELOPPEMENT PERSONNEL / LIVRES / HABITUDES
 // -----------------------------------------------------------------------------
 router.get('/personal-programs', async (req, res) => {
   try {
     const values = [];
-    let sql = `SELECT pp.*, lc.name AS category_name, u.full_name AS author_name
-      FROM personal_programs pp LEFT JOIN learning_categories lc ON lc.id=pp.category_id LEFT JOIN users u ON u.id=pp.author_id
+    let sql = `SELECT pp.*, lc.name AS category_name, u.full_name AS author_name,
+      (SELECT COUNT(*) FROM personal_program_days pd WHERE pd.program_id=pp.id) AS day_count
+      FROM personal_programs pp
+      LEFT JOIN learning_categories lc ON lc.id=pp.category_id
+      LEFT JOIN users u ON u.id=pp.author_id
       WHERE pp.status='published'`;
     sql += whereSearch(req.query.q, ['pp.title', "COALESCE(pp.description,'')", "COALESCE(lc.name,'')"], values);
     sql += ' ORDER BY pp.created_at DESC LIMIT 200';
@@ -358,26 +408,142 @@ router.get('/personal-programs', async (req, res) => {
 
 router.get('/personal-programs/:id', async (req, res) => {
   try {
-    const program = (await query('SELECT * FROM personal_programs WHERE id=$1 AND status=$2', [req.params.id, 'published'])).rows[0];
+    const program = (await query(`SELECT pp.*, lc.name AS category_name, u.full_name AS author_name
+      FROM personal_programs pp
+      LEFT JOIN learning_categories lc ON lc.id=pp.category_id
+      LEFT JOIN users u ON u.id=pp.author_id
+      WHERE (pp.id::text=$1 OR pp.slug=$1) AND pp.status='published' LIMIT 1`, [req.params.id])).rows[0];
     if (!program) return res.status(404).json({ error: 'Programme introuvable.' });
-    const days = (await query('SELECT * FROM personal_program_days WHERE program_id=$1 ORDER BY day_number', [req.params.id])).rows;
+    const days = (await query(`SELECT pd.*,
+      COALESCE(json_agg(json_build_object('id',pt.id,'title',pt.title,'description',pt.description,'position',pt.position)
+        ORDER BY pt.position) FILTER (WHERE pt.id IS NOT NULL),'[]'::json) AS tasks
+      FROM personal_program_days pd
+      LEFT JOIN personal_program_tasks pt ON pt.program_day_id=pd.id
+      WHERE pd.program_id=$1 GROUP BY pd.id ORDER BY pd.day_number`, [program.id])).rows;
     ok(res, { program, days });
   } catch (e) { fail(res, e); }
 });
 
 router.post('/personal-programs/:id/start', requireAuth, async (req, res) => {
   try {
-    const r = await query(`INSERT INTO personal_program_enrollments(user_id,program_id,status) VALUES($1,$2,'active')
-      ON CONFLICT (program_id,user_id) DO UPDATE SET status='active', updated_at=now()
-      RETURNING *`, [req.user.id, req.params.id]);
+    const program = (await query(`SELECT id FROM personal_programs WHERE (id::text=$1 OR slug=$1) AND status='published'`, [req.params.id])).rows[0];
+    if (!program) return res.status(404).json({ error: 'Programme introuvable.' });
+    const r = await query(`INSERT INTO personal_program_enrollments(user_id,program_id,current_day,progress_percent)
+      VALUES($1,$2,1,0)
+      ON CONFLICT (program_id,user_id) DO UPDATE SET updated_at=now()
+      RETURNING *`, [req.user.id, program.id]);
     ok(res, { enrollment: r.rows[0] }, 201);
   } catch (e) { fail(res, e); }
+});
+
+router.get('/personal-programs/:id/my-progress', requireAuth, async (req, res) => {
+  try {
+    const program = (await query(`SELECT id FROM personal_programs WHERE (id::text=$1 OR slug=$1)`, [req.params.id])).rows[0];
+    if (!program) return res.status(404).json({ error: 'Programme introuvable.' });
+    const enrollment = (await query('SELECT * FROM personal_program_enrollments WHERE program_id=$1 AND user_id=$2', [program.id, req.user.id])).rows[0] || null;
+    const completions = (await query(`SELECT ptc.task_id FROM personal_task_completions ptc
+      JOIN personal_program_tasks pt ON pt.id=ptc.task_id
+      JOIN personal_program_days pd ON pd.id=pt.program_day_id
+      WHERE pd.program_id=$1 AND ptc.user_id=$2`, [program.id, req.user.id])).rows.map(r => r.task_id);
+    ok(res, { enrollment, completed_task_ids: completions });
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/personal-tasks/:id/toggle', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const task = (await client.query(`SELECT pt.id,pd.program_id,pd.day_number
+      FROM personal_program_tasks pt JOIN personal_program_days pd ON pd.id=pt.program_day_id WHERE pt.id=$1`, [req.params.id])).rows[0];
+    if (!task) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Tâche introuvable.' }); }
+    const existing = (await client.query('SELECT 1 FROM personal_task_completions WHERE task_id=$1 AND user_id=$2', [task.id, req.user.id])).rows[0];
+    if (existing) await client.query('DELETE FROM personal_task_completions WHERE task_id=$1 AND user_id=$2', [task.id, req.user.id]);
+    else await client.query('INSERT INTO personal_task_completions(task_id,user_id) VALUES($1,$2)', [task.id, req.user.id]);
+
+    const stats = (await client.query(`SELECT COUNT(*)::int AS total,
+      COUNT(ptc.task_id)::int AS done,
+      COALESCE(MAX(CASE WHEN ptc.task_id IS NOT NULL THEN pd.day_number END),1)::int AS current_day
+      FROM personal_program_tasks pt
+      JOIN personal_program_days pd ON pd.id=pt.program_day_id
+      LEFT JOIN personal_task_completions ptc ON ptc.task_id=pt.id AND ptc.user_id=$2
+      WHERE pd.program_id=$1`, [task.program_id, req.user.id])).rows[0];
+    const progress = stats.total ? Math.round(stats.done * 10000 / stats.total) / 100 : 0;
+    const completedAt = progress >= 100 ? new Date() : null;
+    const enrollment = (await client.query(`INSERT INTO personal_program_enrollments(program_id,user_id,current_day,progress_percent,completed_at)
+      VALUES($1,$2,$3,$4,$5)
+      ON CONFLICT (program_id,user_id) DO UPDATE SET current_day=$3,progress_percent=$4,completed_at=$5,updated_at=now()
+      RETURNING *`, [task.program_id, req.user.id, stats.current_day, progress, completedAt])).rows[0];
+    await client.query('COMMIT');
+    ok(res, { completed: !existing, enrollment });
+  } catch (e) { await client.query('ROLLBACK'); fail(res, e); }
+  finally { client.release(); }
+});
+
+router.get('/personal-dashboard', requireAuth, async (req, res) => {
+  try {
+    const enrollments = (await query(`SELECT pe.*, pp.title,pp.slug,pp.cover_url,pp.duration_days,lc.name AS category_name
+      FROM personal_program_enrollments pe
+      JOIN personal_programs pp ON pp.id=pe.program_id
+      LEFT JOIN learning_categories lc ON lc.id=pp.category_id
+      WHERE pe.user_id=$1 ORDER BY pe.updated_at DESC LIMIT 8`, [req.user.id])).rows;
+    const habits = (await query(`SELECT h.*,
+      COALESCE(hl.completed_count,0) AS completed_today,
+      EXISTS(SELECT 1 FROM habit_logs hx WHERE hx.habit_id=h.id AND hx.log_date=CURRENT_DATE) AS done_today
+      FROM habits h LEFT JOIN habit_logs hl ON hl.habit_id=h.id AND hl.log_date=CURRENT_DATE
+      WHERE h.user_id=$1 AND h.is_active=true ORDER BY h.created_at`, [req.user.id])).rows;
+    const last30 = (await query(`SELECT COUNT(DISTINCT log_date)::int AS active_days
+      FROM habit_logs WHERE user_id=$1 AND log_date >= CURRENT_DATE - INTERVAL '29 days'`, [req.user.id])).rows[0];
+    ok(res, { enrollments, habits, stats: { active_days: last30?.active_days || 0, active_programs: enrollments.filter(e => Number(e.progress_percent) < 100).length } });
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/habits', requireAuth, async (req, res) => {
+  try {
+    const habits = (await query(`SELECT h.*,
+      COALESCE(hl.completed_count,0) AS completed_today,
+      EXISTS(SELECT 1 FROM habit_logs hx WHERE hx.habit_id=h.id AND hx.log_date=CURRENT_DATE) AS done_today,
+      (SELECT COUNT(*) FROM habit_logs hs WHERE hs.habit_id=h.id AND hs.log_date >= CURRENT_DATE - INTERVAL '30 days') AS completions_30d
+      FROM habits h LEFT JOIN habit_logs hl ON hl.habit_id=h.id AND hl.log_date=CURRENT_DATE
+      WHERE h.user_id=$1 AND h.is_active=true ORDER BY h.created_at`, [req.user.id])).rows;
+    ok(res, { habits });
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/habits', requireAuth, async (req, res) => {
+  try {
+    const title = (req.body.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'Le titre est obligatoire.' });
+    const r = await query(`INSERT INTO habits(user_id,title,icon,color,frequency,target_per_day)
+      VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,title,req.body.icon||'check-circle',req.body.color||'#1768ff',req.body.frequency||'daily',Number(req.body.target_per_day)||1]);
+    ok(res, { habit:r.rows[0] }, 201);
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/habits/:id', requireAuth, async (req, res) => {
+  try {
+    const r = await query(`UPDATE habits SET title=COALESCE($3,title),is_active=COALESCE($4,is_active),updated_at=now()
+      WHERE id=$1 AND user_id=$2 RETURNING *`, [req.params.id,req.user.id,req.body.title ?? null,req.body.is_active ?? null]);
+    if (!r.rows[0]) return res.status(404).json({ error:'Habitude introuvable.' });
+    ok(res,{habit:r.rows[0]});
+  } catch(e){ fail(res,e); }
+});
+
+router.post('/habits/:id/toggle-today', requireAuth, async (req, res) => {
+  try {
+    const habit = (await query('SELECT * FROM habits WHERE id=$1 AND user_id=$2', [req.params.id,req.user.id])).rows[0];
+    if (!habit) return res.status(404).json({ error:'Habitude introuvable.' });
+    const existing = (await query('SELECT 1 FROM habit_logs WHERE habit_id=$1 AND log_date=CURRENT_DATE', [habit.id])).rows[0];
+    if (existing) await query('DELETE FROM habit_logs WHERE habit_id=$1 AND log_date=CURRENT_DATE', [habit.id]);
+    else await query('INSERT INTO habit_logs(habit_id,user_id,log_date,completed_count) VALUES($1,$2,CURRENT_DATE,1)', [habit.id,req.user.id]);
+    ok(res,{done:!existing});
+  } catch(e){ fail(res,e); }
 });
 
 router.get('/books', async (req, res) => {
   try {
     const values = [];
-    let sql = `SELECT b.*, lc.name AS category_name, u.full_name AS uploaded_by_name
+    let sql = `SELECT b.*, lc.name AS category_name, u.full_name AS uploaded_by_name,
+      (SELECT COUNT(*) FROM book_chapters bc WHERE bc.book_id=b.id) AS chapter_count
       FROM books b LEFT JOIN learning_categories lc ON lc.id=b.category_id LEFT JOIN users u ON u.id=b.uploaded_by
       WHERE b.status='published'`;
     sql += whereSearch(req.query.q, ['b.title', "COALESCE(b.author_name,'')", "COALESCE(b.description,'')", "COALESCE(lc.name,'')"], values);
@@ -388,20 +554,58 @@ router.get('/books', async (req, res) => {
 
 router.get('/books/:id', async (req, res) => {
   try {
-    const book = (await query('SELECT * FROM books WHERE id=$1 AND status=$2', [req.params.id, 'published'])).rows[0];
+    const book = (await query(`SELECT b.*,lc.name AS category_name FROM books b LEFT JOIN learning_categories lc ON lc.id=b.category_id
+      WHERE (b.id::text=$1 OR b.slug=$1) AND b.status='published'`, [req.params.id])).rows[0];
     if (!book) return res.status(404).json({ error: 'Livre introuvable.' });
-    ok(res, { book });
+    const chapters = (await query('SELECT * FROM book_chapters WHERE book_id=$1 ORDER BY chapter_number', [book.id])).rows;
+    ok(res, { book, chapters });
   } catch (e) { fail(res, e); }
+});
+
+router.get('/books/:id/my-progress', requireAuth, async (req, res) => {
+  try {
+    const book = (await query('SELECT id FROM books WHERE id::text=$1 OR slug=$1', [req.params.id])).rows[0];
+    if (!book) return res.status(404).json({error:'Livre introuvable.'});
+    const progress = (await query('SELECT * FROM book_progress WHERE book_id=$1 AND user_id=$2', [book.id,req.user.id])).rows[0] || null;
+    const bookmarks = (await query('SELECT * FROM book_bookmarks WHERE book_id=$1 AND user_id=$2 ORDER BY created_at DESC', [book.id,req.user.id])).rows;
+    const notes = (await query('SELECT * FROM book_notes WHERE book_id=$1 AND user_id=$2 ORDER BY created_at DESC', [book.id,req.user.id])).rows;
+    ok(res,{progress,bookmarks,notes});
+  } catch(e){ fail(res,e); }
 });
 
 router.post('/books/:id/progress', requireAuth, async (req, res) => {
   try {
-    const r = await query(`INSERT INTO book_progress(user_id,book_id,current_page,progress_percent,font_size,night_mode)
-      VALUES($1,$2,$3,$4,$5,$6)
-      ON CONFLICT (book_id,user_id) DO UPDATE SET current_page=$3,progress_percent=$4,font_size=$5,night_mode=$6,updated_at=now()
-      RETURNING *`, [req.user.id, req.params.id, Number(req.body.current_page)||1, Number(req.body.progress_percent)||0, req.body.font_size || 'medium', !!req.body.night_mode]);
+    const book = (await query('SELECT id FROM books WHERE id::text=$1 OR slug=$1', [req.params.id])).rows[0];
+    if (!book) return res.status(404).json({error:'Livre introuvable.'});
+    const r = await query(`INSERT INTO book_progress(user_id,book_id,current_page,progress_percent,font_size,night_mode,last_position)
+      VALUES($1,$2,$3,$4,$5,$6,$7)
+      ON CONFLICT (book_id,user_id) DO UPDATE SET current_page=$3,progress_percent=$4,font_size=$5,night_mode=$6,last_position=$7,updated_at=now()
+      RETURNING *`, [req.user.id,book.id,Number(req.body.current_page)||1,Number(req.body.progress_percent)||0,Number(req.body.font_size)||18,!!req.body.night_mode,req.body.last_position||{}]);
     ok(res, { progress: r.rows[0] });
   } catch (e) { fail(res, e); }
+});
+
+router.post('/books/:id/bookmarks', requireAuth, async (req, res) => {
+  try {
+    const book = (await query('SELECT id FROM books WHERE id::text=$1 OR slug=$1', [req.params.id])).rows[0];
+    if (!book) return res.status(404).json({error:'Livre introuvable.'});
+    const chapter = Number(req.body.page_number)||1;
+    const existing=(await query('SELECT id FROM book_bookmarks WHERE book_id=$1 AND user_id=$2 AND page_number=$3',[book.id,req.user.id,chapter])).rows[0];
+    if(existing){ await query('DELETE FROM book_bookmarks WHERE id=$1',[existing.id]); return ok(res,{bookmarked:false}); }
+    const r=await query('INSERT INTO book_bookmarks(book_id,user_id,page_number,label) VALUES($1,$2,$3,$4) RETURNING *',[book.id,req.user.id,chapter,req.body.label||`Chapitre ${chapter}`]);
+    ok(res,{bookmarked:true,bookmark:r.rows[0]},201);
+  } catch(e){ fail(res,e); }
+});
+
+router.post('/books/:id/notes', requireAuth, async (req, res) => {
+  try {
+    const book=(await query('SELECT id FROM books WHERE id::text=$1 OR slug=$1',[req.params.id])).rows[0];
+    if(!book) return res.status(404).json({error:'Livre introuvable.'});
+    const content=(req.body.content||'').trim();
+    if(!content) return res.status(400).json({error:'La note est vide.'});
+    const r=await query('INSERT INTO book_notes(book_id,user_id,page_number,content) VALUES($1,$2,$3,$4) RETURNING *',[book.id,req.user.id,Number(req.body.page_number)||1,content]);
+    ok(res,{note:r.rows[0]},201);
+  } catch(e){ fail(res,e); }
 });
 
 // -----------------------------------------------------------------------------

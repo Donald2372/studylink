@@ -171,6 +171,17 @@ export default function GenericContentPage({ type }) {
     }
   }
 
+
+  async function installPersonalModule() {
+    try {
+      setBusy(true); setErr('');
+      const r = await api.adminSeedPersonalDevelopment(token);
+      alert(`Module installé : ${r.summary?.program_count || 0} programmes, ${r.summary?.day_count || 0} jours, ${r.summary?.book_count || 0} livres.`);
+      load();
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
   if (!c) return <div className="admin-error">Module administrateur inconnu.</div>;
 
   return (
@@ -178,7 +189,7 @@ export default function GenericContentPage({ type }) {
       <AdminHeader
         title={c.title}
         subtitle={c.subtitle}
-        action={<button className="admin-btn primary" type="button" onClick={() => setOpen(true)}>＋ Ajouter</button>}
+        action={<div className="admin-actions">{type==='personal' && <button className="admin-btn" type="button" disabled={busy} onClick={installPersonalModule}>⚡ Installer le module complet</button>}<button className="admin-btn primary" type="button" onClick={() => setOpen(true)}>＋ Ajouter</button></div>}
       />
 
       {err && <div className="admin-error">{err}</div>}
