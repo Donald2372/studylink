@@ -17,6 +17,32 @@ function whereSearch(q, fields, values) {
   return ` AND (${fields.map((f) => `${f} ILIKE $${i}`).join(' OR ')})`;
 }
 
+async function resolvePublishedCourse(identifier) {
+  return (await query(`
+    SELECT c.*, lc.name AS category_name, u.full_name AS author_name, u.avatar_url AS author_avatar_url,
+      (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id=c.id) AS enrollment_count,
+      (SELECT COUNT(*) FROM course_modules cm WHERE cm.course_id=c.id) AS module_count,
+      (SELECT COUNT(*) FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=c.id) AS lesson_count
+    FROM courses c
+    LEFT JOIN learning_categories lc ON lc.id=c.category_id
+    LEFT JOIN users u ON u.id=c.author_id
+    WHERE (c.id::text=$1 OR c.slug=$1) AND c.status='published'
+    LIMIT 1`, [identifier])).rows[0];
+}
+
+async function loadCourseStructure(courseId) {
+  const modules = (await query('SELECT * FROM course_modules WHERE course_id=$1 ORDER BY position', [courseId])).rows;
+  for (const m of modules) {
+    m.lessons = (await query(`SELECT l.*,
+      (SELECT COUNT(*) FROM lesson_resources lr WHERE lr.lesson_id=l.id) AS resource_count
+      FROM lessons l WHERE l.module_id=$1 ORDER BY l.position`, [m.id])).rows;
+    for (const lesson of m.lessons) {
+      lesson.resources = (await query('SELECT * FROM lesson_resources WHERE lesson_id=$1 ORDER BY created_at', [lesson.id])).rows;
+    }
+  }
+  return modules;
+}
+
 // -----------------------------------------------------------------------------
 // CATALOGUE / COURS PUBLICS
 // -----------------------------------------------------------------------------
@@ -46,30 +72,36 @@ router.get('/courses', async (req, res) => {
 
 router.get('/courses/:id', async (req, res) => {
   try {
-    const course = (await query(`
-      SELECT c.*, lc.name AS category_name, u.full_name AS author_name, u.avatar_url AS author_avatar_url
-      FROM courses c
-      LEFT JOIN learning_categories lc ON lc.id=c.category_id
-      LEFT JOIN users u ON u.id=c.author_id
-      WHERE c.id=$1 AND c.status='published'
-      LIMIT 1`, [req.params.id])).rows[0];
+    const course = await resolvePublishedCourse(req.params.id);
     if (!course) return res.status(404).json({ error: 'Cours introuvable ou non publié.' });
-    const modules = (await query('SELECT * FROM course_modules WHERE course_id=$1 ORDER BY position', [course.id])).rows;
-    for (const m of modules) {
-      m.lessons = (await query('SELECT * FROM lessons WHERE module_id=$1 ORDER BY position', [m.id])).rows;
-    }
+    const modules = await loadCourseStructure(course.id);
     const files = (await query('SELECT * FROM course_files WHERE course_id=$1 ORDER BY created_at DESC', [course.id])).rows;
     ok(res, { course, modules, files });
   } catch (e) { fail(res, e); }
 });
 
+router.get('/courses/:id/learning', requireAuth, async (req, res) => {
+  try {
+    const course = await resolvePublishedCourse(req.params.id);
+    if (!course) return res.status(404).json({ error: 'Cours introuvable ou non publié.' });
+    const enrollment = (await query('SELECT * FROM course_enrollments WHERE course_id=$1 AND user_id=$2 LIMIT 1', [course.id, req.user.id])).rows[0] || null;
+    const progress = (await query(`SELECT lp.* FROM lesson_progress lp
+      JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id
+      WHERE cm.course_id=$1 AND lp.user_id=$2`, [course.id, req.user.id])).rows;
+    const notes = (await query(`SELECT ln.* FROM lesson_notes ln
+      JOIN lessons l ON l.id=ln.lesson_id JOIN course_modules cm ON cm.id=l.module_id
+      WHERE cm.course_id=$1 AND ln.user_id=$2 ORDER BY ln.updated_at DESC`, [course.id, req.user.id])).rows;
+    ok(res, { enrollment, progress, notes });
+  } catch (e) { fail(res, e); }
+});
+
 router.post('/courses/:id/enroll', requireAuth, async (req, res) => {
   try {
-    const course = (await query("SELECT id FROM courses WHERE id=$1 AND status='published'", [req.params.id])).rows[0];
+    const course = await resolvePublishedCourse(req.params.id);
     if (!course) return res.status(404).json({ error: 'Cours introuvable ou non publié.' });
     const r = await query(`INSERT INTO course_enrollments(user_id,course_id,status)
       VALUES($1,$2,'active') ON CONFLICT (course_id,user_id) DO UPDATE SET status='active', updated_at=now()
-      RETURNING *`, [req.user.id, req.params.id]);
+      RETURNING *`, [req.user.id, course.id]);
     ok(res, { enrollment: r.rows[0] }, 201);
   } catch (e) { fail(res, e); }
 });
@@ -77,7 +109,7 @@ router.post('/courses/:id/enroll', requireAuth, async (req, res) => {
 router.get('/my/learning', requireAuth, async (req, res) => {
   try {
     const r = await query(`SELECT ce.*, c.title, c.cover_url, c.level, lc.name AS category_name,
-      COALESCE((SELECT ROUND(AVG(CASE WHEN lp.completed THEN 100 ELSE COALESCE(lp.progress_percent,0) END))
+      COALESCE((SELECT ROUND(AVG(CASE WHEN lp.status='completed' THEN 100 ELSE COALESCE(lp.progress_percent,0) END))
         FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id
         WHERE cm.course_id=c.id AND lp.user_id=$1),0) AS progress_percent
       FROM course_enrollments ce
@@ -93,12 +125,45 @@ router.post('/lessons/:id/progress', requireAuth, async (req, res) => {
   try {
     const percent = Math.max(0, Math.min(100, Number(req.body.progress_percent ?? 0)));
     const completed = Boolean(req.body.completed) || percent >= 100;
+    const status = completed ? 'completed' : (percent > 0 ? 'in_progress' : 'not_started');
+    const lesson = (await query(`SELECT l.id, cm.course_id FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE l.id=$1`, [req.params.id])).rows[0];
+    if (!lesson) return res.status(404).json({ error: 'Leçon introuvable.' });
     const r = await query(`INSERT INTO lesson_progress(user_id,lesson_id,progress_percent,progress_seconds,status,completed_at)
-      VALUES($1,$2,$3,$4,$5,CASE WHEN $5 THEN now() ELSE NULL END)
+      VALUES($1,$2,$3,$4,$5,CASE WHEN $5='completed' THEN now() ELSE NULL END)
       ON CONFLICT (user_id,lesson_id)
-      DO UPDATE SET progress_percent=$3,progress_seconds=$4,status=$5,completed_at=CASE WHEN $5='completed' THEN COALESCE(lesson_progress.completed_at,now()) ELSE NULL END,updated_at=now()
-      RETURNING *`, [req.user.id, req.params.id, percent, Number(req.body.last_position_seconds)||0, completed ? 'completed' : 'in_progress']);
-    ok(res, { progress: r.rows[0] });
+      DO UPDATE SET progress_percent=$3,progress_seconds=$4,status=$5,
+        completed_at=CASE WHEN $5='completed' THEN COALESCE(lesson_progress.completed_at,now()) ELSE NULL END,
+        updated_at=now()
+      RETURNING *`, [req.user.id, req.params.id, percent, Number(req.body.last_position_seconds)||0, status]);
+
+    await query(`INSERT INTO course_enrollments(user_id,course_id,status,last_lesson_id)
+      VALUES($1,$2,'active',$3)
+      ON CONFLICT (course_id,user_id) DO UPDATE SET last_lesson_id=$3, status='active', updated_at=now()`, [req.user.id, lesson.course_id, lesson.id]);
+    const aggregate = (await query(`SELECT COALESCE(ROUND(AVG(COALESCE(lp.progress_percent,0))),0) AS progress
+      FROM lessons l JOIN course_modules cm ON cm.id=l.module_id
+      LEFT JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.user_id=$1
+      WHERE cm.course_id=$2`, [req.user.id, lesson.course_id])).rows[0];
+    const courseProgress = Number(aggregate?.progress || 0);
+    await query(`UPDATE course_enrollments SET progress_percent=$1,
+      status=CASE WHEN $1>=100 THEN 'completed' ELSE 'active' END,
+      completed_at=CASE WHEN $1>=100 THEN COALESCE(completed_at,now()) ELSE NULL END,
+      updated_at=now() WHERE course_id=$2 AND user_id=$3`, [courseProgress, lesson.course_id, req.user.id]);
+    ok(res, { progress: r.rows[0], course_progress_percent: courseProgress });
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/lessons/:id/notes', requireAuth, async (req, res) => {
+  try {
+    const content = (req.body.content || '').toString().trim();
+    if (!content) {
+      await query('DELETE FROM lesson_notes WHERE lesson_id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+      return ok(res, { note: null });
+    }
+    const existing = (await query('SELECT id FROM lesson_notes WHERE lesson_id=$1 AND user_id=$2 ORDER BY updated_at DESC LIMIT 1', [req.params.id, req.user.id])).rows[0];
+    const result = existing
+      ? await query('UPDATE lesson_notes SET content=$1,updated_at=now() WHERE id=$2 RETURNING *', [content, existing.id])
+      : await query('INSERT INTO lesson_notes(lesson_id,user_id,content) VALUES($1,$2,$3) RETURNING *', [req.params.id, req.user.id, content]);
+    ok(res, { note: result.rows[0] });
   } catch (e) { fail(res, e); }
 });
 

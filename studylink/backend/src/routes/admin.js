@@ -3,6 +3,7 @@ import { query, pool } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import multer from 'multer';
 import { uploadBuffer } from '../storage.js';
+import fs from 'node:fs/promises';
 
 const router = Router();
 router.use(requireRole('admin'));
@@ -81,6 +82,20 @@ router.get('/dashboard', async (_req,res) => {
 router.get('/categories', async (req,res)=>{ try { const {universe}=req.query; const r=await query(`SELECT * FROM learning_categories ${universe?'WHERE universe=$1':''} ORDER BY sort_order,name`, universe?[universe]:[]); ok(res,{categories:r.rows}); } catch(e){fail(res,e)} });
 router.get('/users', async (_req,res)=>{ try { const r=await query(`SELECT id,email,full_name,role,avatar_url,created_at FROM users ORDER BY created_at DESC LIMIT 200`); ok(res,{users:r.rows}); } catch(e){fail(res,e)} });
 router.patch('/users/:id/role', async (req,res)=>{ try { const role=req.body.role; if(!['student','tutor','admin'].includes(role)) return res.status(400).json({error:'Rôle invalide'}); const r=await query(`UPDATE users SET role=$1 WHERE id=$2 RETURNING id,email,full_name,role`,[role,req.params.id]); ok(res,{user:r.rows[0]}); } catch(e){fail(res,e)} });
+
+
+router.post('/seed/python-course', async (_req,res)=>{
+  try {
+    const migrationUrl = new URL('../../migrations/006_complete_python_course.sql', import.meta.url);
+    const sql = await fs.readFile(migrationUrl, 'utf8');
+    await pool.query(sql);
+    const course = (await query(`SELECT c.*,
+      (SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) AS module_count,
+      (SELECT COUNT(*) FROM lessons l JOIN course_modules m ON m.id=l.module_id WHERE m.course_id=c.id) AS lesson_count
+      FROM courses c WHERE c.slug='python-pour-debutants-complet' LIMIT 1`)).rows[0];
+    ok(res,{course},201);
+  } catch(e){fail(res,e,'Impossible d’installer le cours Python complet.');}
+});
 
 router.get('/courses', async (_req,res)=>{ try { const r=await query(`SELECT c.*,lc.name category_name,u.full_name author_name,(SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) module_count FROM courses c LEFT JOIN learning_categories lc ON lc.id=c.category_id LEFT JOIN users u ON u.id=c.author_id ORDER BY c.created_at DESC`); ok(res,{courses:r.rows}); } catch(e){fail(res,e,'Les tables de cours ne sont pas encore installées. Exécutez la migration SQL.')} });
 router.post('/courses', async (req,res)=>{ try { const b=req.body; if(!b.title) return res.status(400).json({error:'Titre requis'}); const slug=await uniqueSlug('courses',b.title); const r=await query(`INSERT INTO courses(author_id,category_id,title,slug,short_description,description,cover_url,level,language,estimated_minutes,price,is_free,status,content_type,objectives,prerequisites,published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,CASE WHEN $13::varchar='published' THEN now() ELSE NULL END) RETURNING *`,[req.user.id,b.category_id||null,b.title,slug,b.short_description||'',b.description||'',b.cover_url||null,b.level||'beginner',b.language||'fr',Number(b.estimated_minutes)||0,Number(b.price)||0,b.is_free!==false,b.status||'draft',b.content_type||'course',b.objectives||[],b.prerequisites||[]]); ok(res,{course:r.rows[0]},201); } catch(e){fail(res,e)} });

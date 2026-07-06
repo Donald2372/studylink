@@ -44,6 +44,7 @@ export const api = {
     return request(`/content/courses${qs ? `?${qs}` : ''}`);
   },
   getCourse: (id) => request(`/content/courses/${id}`),
+  getCourseLearning: (id, token) => request(`/content/courses/${id}/learning`, { token }),
   getPublicMaterials: (params = {}) => {
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
@@ -93,6 +94,7 @@ export const api = {
   saveBookProgress: (id, payload, token) => request(`/content/books/${id}/progress`, { method:'POST', body:payload, token }),
   enrollCourse: (id, token) => request(`/content/courses/${id}/enroll`, { method:'POST', token }),
   saveLessonProgress: (id, payload, token) => request(`/content/lessons/${id}/progress`, { method:'POST', body:payload, token }),
+  saveLessonNote: (id, content, token) => request(`/content/lessons/${id}/notes`, { method:'POST', body:{ content }, token }),
   getMyLearning: (token) => request('/content/my/learning', { token }),
   getEntrepreneurTools: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/entrepreneur-tools${qs ? `?${qs}` : ''}`); },
   getMyEntrepreneurProject: (token) => request('/content/entrepreneur-projects/me', { token }),
@@ -101,6 +103,7 @@ export const api = {
   markNotificationRead: (id, token) => request(`/content/notifications/${id}/read`, { method:'PATCH', token }),
 
   adminDashboard: (token) => request('/admin/dashboard', { token }),
+  adminSeedPythonCourse: (token) => request('/admin/seed/python-course', { method:'POST', token }),
   adminCategories: (token, universe='') => request(`/admin/categories${universe ? `?universe=${encodeURIComponent(universe)}` : ''}`, { token }),
   adminUsers: (token) => request('/admin/users', { token }),
   adminSetUserRole: (id, role, token) => request(`/admin/users/${id}/role`, { method:'PATCH', body:{role}, token }),

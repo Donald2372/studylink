@@ -10,6 +10,8 @@ export default function AdminCoursesPage() {
   const [q, setQ] = useState('');
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [seeding, setSeeding] = useState(false);
+  const [success, setSuccess] = useState('');
 
   const load = () => api.adminList('courses', token)
     .then((x) => setItems(x.courses || []))
@@ -36,13 +38,23 @@ export default function AdminCoursesPage() {
     }
   }
 
+  async function installPythonCourse() {
+    setSeeding(true); setErr(''); setSuccess('');
+    try {
+      const result = await api.adminSeedPythonCourse(token);
+      setSuccess(`Cours « ${result.course?.title || 'Python pour débutants'} » installé : ${result.course?.module_count || 6} modules et ${result.course?.lesson_count || 18} leçons.`);
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSeeding(false); }
+  }
+
   const filtered = items.filter((x) => x.title.toLowerCase().includes(q.toLowerCase()));
 
   return <>
     <AdminHeader
       title="Cours"
       subtitle="Créez, structurez et publiez vos formations"
-      action={<Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link>}
+      action={<div className="admin-header-actions"><button className="admin-btn secondary" onClick={installPythonCourse} disabled={seeding}>{seeding ? 'Installation...' : '⚡ Installer le cours Python complet'}</button><Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link></div>}
     />
 
     <div className="admin-toolbar">
@@ -50,6 +62,7 @@ export default function AdminCoursesPage() {
     </div>
 
     {err && <div className="admin-error">{err}</div>}
+    {success && <div className="admin-success">✓ {success}</div>}
 
     <div className="admin-table-wrap">
       <table className="admin-table">
@@ -81,7 +94,7 @@ export default function AdminCoursesPage() {
     </div>
 
     <div className="admin-upload-note" style={{ marginTop: 16 }}>
-      Un cours en <b>Brouillon</b> reste invisible pour le public. Cliquez sur <b>Publier</b> pour l’afficher dans le Catalogue, l’accueil et la page Documents.
+      <b>Installation rapide :</b> le bouton « Installer le cours Python complet » crée ou met à jour un vrai parcours de 6 modules et 18 leçons avec vidéos YouTube intégrées, exercices et ressources officielles. Un cours en <b>Brouillon</b> reste invisible pour le public ; cliquez sur <b>Publier</b> pour l’afficher.
     </div>
   </>;
 }
