@@ -265,6 +265,7 @@ router.post('/forum/topics', requireAuth, async (req, res) => {
     const { category_id, title, content } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'Titre requis.' });
     const r = await query(`INSERT INTO forum_topics(category_id,author_id,title,content,last_activity_at) VALUES($1,$2,$3,$4,now()) RETURNING *`, [category_id || null, req.user.id, title.trim(), content || '']);
+    await query(`INSERT INTO forum_topic_follows(topic_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [r.rows[0].id, req.user.id]);
     ok(res, { topic: r.rows[0] }, 201);
   } catch (e) { fail(res, e); }
 });
@@ -276,8 +277,36 @@ router.post('/forum/topics/:id/posts', requireAuth, async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const topicResult = await client.query('SELECT id,title,author_id FROM forum_topics WHERE id=$1 FOR UPDATE', [req.params.id]);
+      const topic = topicResult.rows[0];
+      if (!topic) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Discussion introuvable.' });
+      }
+
       const r = await client.query('INSERT INTO forum_posts(topic_id,author_id,content) VALUES($1,$2,$3) RETURNING *', [req.params.id, req.user.id, content.trim()]);
       await client.query('UPDATE forum_topics SET last_activity_at=now() WHERE id=$1', [req.params.id]);
+      await client.query(`INSERT INTO forum_topic_follows(topic_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [req.params.id, req.user.id]);
+
+      const recipients = await client.query(`
+        SELECT DISTINCT user_id FROM (
+          SELECT author_id AS user_id FROM forum_topics WHERE id=$1
+          UNION
+          SELECT user_id FROM forum_topic_follows WHERE topic_id=$1
+        ) recipients
+        WHERE user_id <> $2`, [req.params.id, req.user.id]);
+
+      for (const recipient of recipients.rows) {
+        await client.query(`INSERT INTO notifications(user_id,type,title,body,data,action_url)
+          VALUES($1,'forum',$2,$3,$4::jsonb,$5)`, [
+          recipient.user_id,
+          'Nouvelle réponse sur le forum',
+          `Une nouvelle réponse a été publiée dans « ${topic.title} ».`,
+          JSON.stringify({ topic_id: req.params.id, post_id: r.rows[0].id }),
+          `/forum?topic=${req.params.id}`
+        ]);
+      }
+
       await client.query('COMMIT');
       ok(res, { post: r.rows[0] }, 201);
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
@@ -418,6 +447,46 @@ router.patch('/entrepreneur-tasks/:id', requireAuth, async (req, res) => {
 // -----------------------------------------------------------------------------
 // NOTIFICATIONS UTILISATEUR
 // -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// COMPTEURS DU TABLEAU DE BORD (PROPRES A L'UTILISATEUR CONNECTE)
+// -----------------------------------------------------------------------------
+router.get('/dashboard-counts', requireAuth, async (req, res) => {
+  try {
+    const [messagesResult, forumResult, notificationsResult] = await Promise.all([
+      query(`SELECT COUNT(*)::int AS count
+             FROM messages
+             WHERE recipient_id=$1 AND read_at IS NULL`, [req.user.id]),
+      query(`SELECT COUNT(*)::int AS count
+             FROM notifications
+             WHERE user_id=$1 AND read_at IS NULL AND type='forum'`, [req.user.id]),
+      query(`SELECT COUNT(*)::int AS count
+             FROM notifications
+             WHERE user_id=$1 AND read_at IS NULL
+               AND type NOT IN ('message','forum')`, [req.user.id])
+    ]);
+
+    ok(res, {
+      messages: messagesResult.rows[0]?.count || 0,
+      forum: forumResult.rows[0]?.count || 0,
+      notifications: notificationsResult.rows[0]?.count || 0
+    });
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/notifications/read-by-type/:type', requireAuth, async (req, res) => {
+  try {
+    const allowed = new Set(['message','forum','booking','session','bootcamp','course','career','personal_development','entrepreneurship','system']);
+    const type = String(req.params.type || '').toLowerCase();
+    if (!allowed.has(type)) return res.status(400).json({ error: 'Type de notification invalide.' });
+    const r = await query(`UPDATE notifications
+      SET read_at=now()
+      WHERE user_id=$1 AND type=$2 AND read_at IS NULL
+      RETURNING id`, [req.user.id, type]);
+    ok(res, { updated: r.rowCount });
+  } catch (e) { fail(res, e); }
+});
+
 router.get('/notifications', requireAuth, async (req, res) => {
   try {
     const r = await query('SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200', [req.user.id]);

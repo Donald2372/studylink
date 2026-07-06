@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { AppShell, Avatar } from '../../components/AppShell.jsx';
 
-const fallbackAvatar='https://i.pravatar.cc/160?img=12';
+const fallbackAvatar='';
 const sizeLabel=(bytes)=>{const n=Number(bytes)||0;if(!n)return'';if(n<1024*1024)return`${Math.round(n/1024)} Ko`;return`${(n/1024/1024).toFixed(2)} Mo`};
 
 export default function ConversationPage() {
@@ -12,9 +12,10 @@ export default function ConversationPage() {
   const { token,user }=useAuth();
   const nav=useNavigate();
   const location=useLocation();
-  const name=new URLSearchParams(location.search).get('name')||'Contact';
+  const queryName=new URLSearchParams(location.search).get('name')||'Contact';
   const inputRef=useRef(null);
   const [messages,setMessages]=useState([]);
+  const [contact,setContact]=useState(null);
   const [text,setText]=useState('');
   const [file,setFile]=useState(null);
   const [loading,setLoading]=useState(true);
@@ -27,6 +28,7 @@ export default function ConversationPage() {
     try{
       const data=await api.getThread(id,token);
       setMessages(data.messages||[]);
+      setContact(data.contact||null);
       api.markThreadRead(id,token).catch(()=>{});
     }catch(e){setError(e.message)}finally{setLoading(false)}
   };
@@ -58,7 +60,15 @@ export default function ConversationPage() {
   }
 
   return <AppShell><div className="page conversation-page">
-    <div className="chat-header"><button onClick={()=>nav(-1)}>←</button><Avatar src={fallbackAvatar}/><div className="grow"><h2>{name}</h2><p>Conversation privée</p></div><div className="chat-call-actions"><button title="Appel audio" onClick={()=>startCall('audio')} disabled={calling}>☎</button><button title="Appel vidéo" onClick={()=>startCall('video')} disabled={calling}>📹</button><button>⋮</button></div></div>
+    <div className="chat-header">
+      <button onClick={()=>nav(-1)}>←</button>
+      <Avatar src={contact?.avatar_url||fallbackAvatar} name={contact?.full_name||queryName}/>
+      <div className="grow">
+        <h2>{contact?.full_name||queryName}</h2>
+        <p>{contact?.role==='tutor' ? 'Tuteur · Conversation privée' : 'Conversation privée'}</p>
+      </div>
+      <div className="chat-call-actions"><button title="Appel audio" onClick={()=>startCall('audio')} disabled={calling}>☎</button><button title="Appel vidéo" onClick={()=>startCall('video')} disabled={calling}>📹</button><button>⋮</button></div>
+    </div>
     {error&&<div className="admin-error" style={{margin:12}}>{error}</div>}
     <div className="chat-body"><span className="day-pill">Aujourd’hui</span>
       {loading ? <p>Chargement...</p> : messages.map((m)=>{

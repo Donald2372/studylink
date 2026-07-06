@@ -107,21 +107,32 @@ router.get('/thread/:userId', async (req, res) => {
     const isContact = await assertContact(req.user.id, otherId);
     if (!isContact) return res.status(403).json({ error: "Utilisateur introuvable ou non autorisé." });
 
-    const messages = await query(
-      `SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.created_at,
-        COALESCE((
-          SELECT json_agg(json_build_object(
-            'id',a.id,'file_name',a.file_name,'file_url',a.file_url,
-            'mime_type',a.mime_type,'file_size_bytes',a.file_size_bytes
-          ) ORDER BY a.created_at)
-          FROM message_attachments a WHERE a.message_id=m.id
-        ), '[]'::json) AS attachments
-       FROM messages m
-       WHERE (m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1)
-       ORDER BY m.created_at ASC`,
-      [req.user.id, otherId]
-    );
-    res.json({ messages: messages.rows });
+    const [messages, contactResult] = await Promise.all([
+      query(
+        `SELECT m.id, m.sender_id, m.recipient_id, m.content, m.read_at, m.created_at,
+          COALESCE((
+            SELECT json_agg(json_build_object(
+              'id',a.id,'file_name',a.file_name,'file_url',a.file_url,
+              'mime_type',a.mime_type,'file_size_bytes',a.file_size_bytes
+            ) ORDER BY a.created_at)
+            FROM message_attachments a WHERE a.message_id=m.id
+          ), '[]'::json) AS attachments
+         FROM messages m
+         WHERE (m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1)
+         ORDER BY m.created_at ASC`,
+        [req.user.id, otherId]
+      ),
+      query(
+        `SELECT id, full_name, avatar_url, role, occupation, city, country
+         FROM users WHERE id = $1 LIMIT 1`,
+        [otherId]
+      )
+    ]);
+
+    res.json({
+      contact: contactResult.rows[0] || null,
+      messages: messages.rows
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur lors du chargement de la conversation.' });

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { MessageCircle, UsersRound, Bell, FolderOpen } from 'lucide-react';
 import { AppShell, PageHeader, Card, Avatar, Progress } from '../../components/AppShell.jsx';
 import { demoCourses, demoTutorials, demoPrograms, demoBootcamps } from '../../data/demoContent.js';
 
 const fallbackAvatar='https://i.pravatar.cc/160?img=47';
-const quickLinks=[
-  ['Messages','/messages','💬','2'],['Forum','/forum','👥','5'],['Notifications','/alerts','🔔','7'],['Documents','/materials','📁','']
-];
 const featureLinks=[
   ['Développement personnel','/personal-development','✦','Discipline, yoga, méditation'],
   ['Entrepreneuriat','/entrepreneurship','↗','Business plan et outils'],
@@ -16,8 +15,10 @@ const featureLinks=[
 ];
 
 export default function HomePage() {
+  const { token } = useAuth();
   const [courses, setCourses] = useState([]);
   const [bootcamps,setBootcamps]=useState([]);
+  const [counts,setCounts]=useState({messages:0,forum:0,notifications:0});
 
   useEffect(() => {
     let alive = true;
@@ -26,15 +27,65 @@ export default function HomePage() {
     return () => { alive = false; };
   }, []);
 
+  useEffect(() => {
+    if (!token) {
+      setCounts({ messages: 0, forum: 0, notifications: 0 });
+      return undefined;
+    }
+
+    let alive = true;
+    const loadCounts = () => api.getDashboardCounts(token)
+      .then((data) => {
+        if (!alive) return;
+        setCounts({
+          messages: Number(data.messages) || 0,
+          forum: Number(data.forum) || 0,
+          notifications: Number(data.notifications) || 0
+        });
+      })
+      .catch(() => {});
+
+    loadCounts();
+    const intervalId = window.setInterval(loadCounts, 20000);
+    const onFocus = () => loadCounts();
+    const onVisibility = () => { if (document.visibilityState === 'visible') loadCounts(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      alive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [token]);
+
+  const quickLinks = useMemo(() => [
+    { label: 'Messages', to: '/messages', Icon: MessageCircle, count: counts.messages },
+    { label: 'Forum', to: '/forum', Icon: UsersRound, count: counts.forum },
+    { label: 'Notifications', to: '/alerts', Icon: Bell, count: counts.notifications },
+    { label: 'Documents', to: '/materials', Icon: FolderOpen, count: 0 }
+  ], [counts]);
+
   const displayCourses=useMemo(()=>[...courses,...demoCourses.filter(d=>!courses.some(c=>String(c.id)===String(d.id)))].slice(0,4),[courses]);
   const displayBootcamps=useMemo(()=>[...bootcamps,...demoBootcamps.filter(d=>!bootcamps.some(b=>String(b.id)===String(d.id)))].slice(0,3),[bootcamps]);
 
   return <AppShell><div className="page">
     <PageHeader title="Bonjour 👋" subtitle="Prêt à avancer dans votre apprentissage ?" />
 
-    <Card className="next-session"><div><span className="eyebrow">Prochaine session</span><div className="row gap"><Avatar src={fallbackAvatar}/><div><h3>Python – Programmation avancée</h3><p>Avec Marie T. · Aujourd’hui, 14:00 – 16:00</p></div></div></div><Link className="primary-btn" to="/bookings">Rejoindre</Link></Card>
+    <Card className="next-session next-session-compact" role="status" aria-live="polite">
+      <div className="next-session-left">
+        <span className="session-pulse-dot" aria-hidden="true" />
+        <Avatar src={fallbackAvatar}/>
+        <div className="next-session-copy">
+          <div className="next-session-title-row"><span className="next-session-label">Prochain rendez-vous</span><strong>Python – Programmation avancée</strong></div>
+          <p>Marie T. · Aujourd’hui, 14:00–16:00</p>
+        </div>
+      </div>
+      <Link className="session-join-btn" to="/bookings">Rejoindre l’appel</Link>
+    </Card>
 
-    <div className="quick-grid">{quickLinks.map(([l,to,icon,n]) => <Link to={to} className="quick-card" key={l}><span className="quick-icon">{icon}</span><b>{l}</b>{n && <span className="badge red">{n}</span>}</Link>)}</div>
+    <div className="quick-grid">{quickLinks.map(({ label, to, Icon, count }) => <Link to={to} className="quick-card" key={label}><span className="quick-icon" aria-hidden="true"><Icon size={30} strokeWidth={2} /></span><b>{label}</b>{Number(count) > 0 && <span className="badge red" aria-label={`${count} élément${Number(count)>1?'s':''} non lu${Number(count)>1?'s':''}`}>{Number(count) > 99 ? '99+' : count}</span>}</Link>)}</div>
 
     <div className="section-title"><h2>Mes apprentissages</h2><Link to="/catalogue">Voir tout</Link></div>
     <Card>{[

@@ -32,10 +32,14 @@ router.post('/', async (req, res) => {
     }
 
     const tutorResult = await client.query(
-      'SELECT hourly_rate FROM tutor_profiles WHERE id = $1',
+      `SELECT tp.hourly_rate, tp.user_id AS tutor_user_id, u.full_name AS tutor_name
+       FROM tutor_profiles tp
+       JOIN users u ON u.id=tp.user_id
+       WHERE tp.id = $1`,
       [slot.tutor_id]
     );
-    const hourlyRate = tutorResult.rows[0]?.hourly_rate || 0;
+    const tutor = tutorResult.rows[0] || {};
+    const hourlyRate = tutor.hourly_rate || 0;
     const hours = (new Date(slot.end_time) - new Date(slot.start_time)) / 3600000;
     const price = Math.round(hourlyRate * hours * 100) / 100;
 
@@ -51,8 +55,33 @@ router.post('/', async (req, res) => {
       [slotId]
     );
 
+    const studentResult = await client.query('SELECT full_name FROM users WHERE id=$1', [req.user.id]);
+    const studentName = studentResult.rows[0]?.full_name || 'Un apprenant';
+    const booking = bookingResult.rows[0];
+    const actionUrl = `/sessions/${booking.id}`;
+
+    if (tutor.tutor_user_id) {
+      await client.query(`INSERT INTO notifications(user_id,type,title,body,data,action_url)
+        VALUES($1,'booking',$2,$3,$4::jsonb,$5)`, [
+        tutor.tutor_user_id,
+        'Nouvelle réservation',
+        `${studentName} a réservé un créneau avec vous.`,
+        JSON.stringify({ booking_id: booking.id, slot_id: slotId }),
+        actionUrl
+      ]);
+    }
+
+    await client.query(`INSERT INTO notifications(user_id,type,title,body,data,action_url)
+      VALUES($1,'booking',$2,$3,$4::jsonb,$5)`, [
+      req.user.id,
+      'Réservation confirmée',
+      `Votre rendez-vous avec ${tutor.tutor_name || 'votre tuteur'} est confirmé.`,
+      JSON.stringify({ booking_id: booking.id, slot_id: slotId }),
+      actionUrl
+    ]);
+
     await client.query('COMMIT');
-    res.status(201).json({ booking: bookingResult.rows[0] });
+    res.status(201).json({ booking });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
@@ -152,6 +181,17 @@ router.patch('/:id/cancel', async (req, res) => {
 
     await client.query(`UPDATE bookings SET status = 'cancelled' WHERE id = $1`, [booking.id]);
     await client.query(`UPDATE availability_slots SET status = 'available' WHERE id = $1`, [booking.slot_id]);
+
+    const tutorUserResult = await client.query('SELECT user_id FROM tutor_profiles WHERE id=$1', [booking.tutor_id]);
+    const tutorUserId = tutorUserResult.rows[0]?.user_id;
+    if (tutorUserId) {
+      await client.query(`INSERT INTO notifications(user_id,type,title,body,data,action_url)
+        VALUES($1,'booking','Réservation annulée','Un apprenant a annulé une réservation.',$2::jsonb,$3)`, [
+        tutorUserId,
+        JSON.stringify({ booking_id: booking.id }),
+        `/sessions/${booking.id}`
+      ]);
+    }
 
     await client.query('COMMIT');
     res.json({ message: 'Réservation annulée.' });

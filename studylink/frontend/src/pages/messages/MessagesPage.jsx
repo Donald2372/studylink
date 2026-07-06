@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { AppShell, PageHeader, Card, Chip, Avatar } from '../../components/AppShell.jsx';
 
-const fallbackAvatar='https://i.pravatar.cc/160?img=12';
+const fallbackAvatar='';
 
 export default function MessagesPage() {
   const { token } = useAuth();

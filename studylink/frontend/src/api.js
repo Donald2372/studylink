@@ -114,7 +114,9 @@ export const api = {
   getEntrepreneurTools: (params = {}) => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))).toString(); return request(`/content/entrepreneur-tools${qs ? `?${qs}` : ''}`); },
   getMyEntrepreneurProject: (token) => request('/content/entrepreneur-projects/me', { token }),
   updateEntrepreneurTask: (id, status, token) => request(`/content/entrepreneur-tasks/${id}`, { method:'PATCH', body:{status}, token }),
+  getDashboardCounts: (token) => request('/content/dashboard-counts', { token }),
   getNotifications: (token) => request('/content/notifications', { token }),
+  markNotificationsReadByType: (type, token) => request(`/content/notifications/read-by-type/${encodeURIComponent(type)}`, { method:'PATCH', token }),
   markNotificationRead: (id, token) => request(`/content/notifications/${id}/read`, { method:'PATCH', token }),
 
   adminDashboard: (token) => request('/admin/dashboard', { token }),

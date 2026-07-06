@@ -4,6 +4,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { AppShell, PageHeader, Avatar, Progress } from '../../components/AppShell.jsx';
 import { PYTHON_COURSE_SLUG, pythonCourseFallback, flattenCourseLessons } from '../../data/pythonCourseData.js';
+import { demoCourses } from '../../data/demoContent.js';
 
 const duration = (minutes) => {
   const n = Number(minutes) || 0;
@@ -26,6 +27,7 @@ export default function CourseDetailPage() {
   const [busy, setBusy] = useState(false);
 
   const isPythonFallback = id === PYTHON_COURSE_SLUG || id === 'demo-python';
+  const demoCourse = demoCourses.find((course) => String(course.id) === String(id) || String(course.slug) === String(id));
 
   useEffect(() => {
     let alive = true;
@@ -34,10 +36,13 @@ export default function CourseDetailPage() {
       .then((result) => alive && setData(result))
       .catch((e) => {
         if (isPythonFallback && alive) setData(pythonCourseFallback);
-        else if (alive) setError(e.message);
+        else if (demoCourse && alive) {
+          const genericModules = Array.from({ length: 3 }, (_, mi) => ({ id: `${demoCourse.id}-m${mi+1}`, title: ['Fondamentaux','Mise en pratique','Projet guidé'][mi], description: ['Comprendre les concepts essentiels','Appliquer avec des exercices','Construire un projet concret'][mi], position: mi+1, lessons: Array.from({ length: 2 }, (_, li) => ({ id: `${demoCourse.id}-m${mi+1}-l${li+1}`, title: li===0 ? ['Comprendre les bases','Pratiquer pas à pas','Construire le projet'][mi] : ['Exercices essentiels','Cas pratique','Bilan et prochaines étapes'][mi], lesson_type: li===0?'text':'exercise', content: demoCourse.short_description, duration_seconds: 1800, position: li+1, resources: [] })) }));
+          setData({ course: demoCourse, modules: genericModules, files: [] });
+        } else if (alive) setError(e.message);
       });
     return () => { alive = false; };
-  }, [id, isPythonFallback]);
+  }, [id, isPythonFallback, demoCourse]);
 
   useEffect(() => {
     if (!token || !data) return;

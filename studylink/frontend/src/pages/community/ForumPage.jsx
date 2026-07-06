@@ -17,6 +17,7 @@ export default function ForumPage(){
   const [error,setError]=useState('');
   const load=()=>Promise.all([api.getForumCategories(),api.getForumTopics({q,category_id:cat})]).then(([c,t])=>{setCategories(c.categories||[]);setTopics(t.topics||[])}).catch(e=>setError(e.message));
   useEffect(()=>{load()},[cat]);
+  useEffect(()=>{if(token) api.markNotificationsReadByType('forum',token).catch(()=>{});},[token]);
   useEffect(()=>{const t=setTimeout(load,300);return()=>clearTimeout(t)},[q]);
   async function create(e){e.preventDefault(); if(!token){setError('Connectez-vous pour publier.');return;} try{await api.createForumTopic(form,token); setForm({title:'',content:'',category_id:''}); setOpen(false); load();}catch(e){setError(e.message)}}
   async function openTopic(topic){setActive(topic); try{const d=await api.getForumTopic(topic.id); setPosts(d.posts||[]);}catch(e){setError(e.message)}}
