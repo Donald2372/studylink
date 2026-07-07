@@ -816,7 +816,7 @@ router.get('/study-space/dashboard', requireAuth, async (req,res) => {
         ORDER BY s.start_time LIMIT 5`,[req.user.id]),
       query(`SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`,[req.user.id]),
       query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id]),
-      query(`SELECT c.id,c.title,c.description,c.cover_url,c.level,c.estimated_duration_minutes,lc.name AS category
+      query(`SELECT c.id,c.title,c.description,c.cover_url,c.level,c.estimated_minutes,lc.name AS category
         FROM courses c LEFT JOIN learning_categories lc ON lc.id=c.category_id
         WHERE c.status='published' AND NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id=c.id AND ce.user_id=$1)
         ORDER BY c.created_at DESC LIMIT 6`,[req.user.id]),

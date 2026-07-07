@@ -4,6 +4,7 @@ import { AppShell } from '../../components/AppShell.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useStudySpace } from './StudySpaceContext.jsx';
 import { api } from '../../api.js';
+import { useAmbientAudio } from './useAmbientAudio.js';
 import {
   CalendarDays, Clock3, Target, NotebookPen, BarChart3, Play, Pause, Square, CheckCircle2,
   Circle, Plus, Trash2, Star, Search, BookOpen, Brain, ListTodo, FileText, ChevronLeft,
@@ -71,6 +72,7 @@ export function StudyFocusPage(){
   const [session,setSession]=useState(null); const [seconds,setSeconds]=useState(50*60); const [running,setRunning]=useState(false); const [mode,setMode]=useState('50/10');
   const [objective,setObjective]=useState(''); const [subject,setSubject]=useState(''); const [distractions,setDistractions]=useState([]); const [dist,setDist]=useState('');
   const [quickNote,setQuickNote]=useState(''); const [savingNote,setSavingNote]=useState(false); const [resourceFilter,setResourceFilter]=useState('all');
+  const ambienceAudio=useAmbientAudio();
 
   useEffect(()=>{
     if(!data)return;
@@ -121,7 +123,7 @@ export function StudyFocusPage(){
 
     <section className="study-card focus-note"><div className="card-head"><h3>Note de travail</h3><NotebookPen/></div>{recentNote&&<button className="recent-note-preview" onClick={()=>nav('/study-space/notes')}><b>{recentNote.title}</b><p>{recentNote.content?.slice(0,120)}</p></button>}<textarea value={quickNote} onChange={e=>setQuickNote(e.target.value)} placeholder="Écrivez une idée, une formule, une question ou ce qu’il faut revoir…"/><button className="primary-btn note-save" disabled={!quickNote.trim()||savingNote} onClick={saveQuickNote}><Save size={16}/>{savingNote?' Enregistrement…':' Enregistrer la note'}</button></section>
 
-    <aside className="study-card ambience"><h3>Ambiance</h3><div className="ambiance-grid">{[[Volume2,'Silence'],[CloudRain,'Pluie'],[Coffee,'Café'],[Library,'Bibliothèque'],[Trees,'Forêt'],[Waves,'Bruit blanc']].map(([I,l],i)=><button className={i===0?'active':''} key={l}><I/>{l}</button>)}</div><small>Choisissez un environnement calme. Les sons peuvent être ajoutés ensuite depuis vos préférences.</small></aside>
+    <aside className="study-card ambience"><div className="card-head"><h3>Ambiance sonore</h3><Volume2/></div><div className="ambiance-grid">{[[Volume2,'Silence'],[CloudRain,'Pluie'],[Coffee,'Café'],[Library,'Bibliothèque'],[Trees,'Forêt'],[Waves,'Bruit blanc']].map(([I,l])=><button className={ambienceAudio.active===l?'active':''} key={l} onClick={()=>ambienceAudio.select(l)} title={l==='Silence'?'Couper tous les sons':`Lire l’ambiance ${l}`}><I/>{l}</button>)}</div><div className="ambience-status"><span>{ambienceAudio.active==='Silence'?'Aucun son en lecture':`▶ ${ambienceAudio.active} en lecture`}</span><label>Volume <input type="range" min="0" max="1" step="0.05" value={ambienceAudio.volume} onChange={e=>ambienceAudio.setVolume(e.target.value)}/></label></div><small>Les ambiances sont générées localement dans votre navigateur : aucun fichier externe, aucune publicité et aucun compte supplémentaire.</small></aside>
 
     <aside className="study-card distractions"><h3>Parking à distractions</h3>{distractions.length?distractions.map((d,i)=><label key={`${d}-${i}`}><input type="checkbox"/> {d}</label>):<p className="empty-small">Aucune distraction notée. Utilisez cet espace pour ne pas interrompre votre concentration.</p>}<div className="inline-add"><input value={dist} onChange={e=>setDist(e.target.value)} placeholder="Noter une distraction…"/><button onClick={addDist}><Plus/></button></div></aside>
 
