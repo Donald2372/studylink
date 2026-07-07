@@ -794,83 +794,21 @@ router.post('/career/goals', requireAuth, async (req,res) => {
 // -----------------------------------------------------------------------------
 // MON ESPACE D'ETUDE PRIVE
 // -----------------------------------------------------------------------------
-async function ensureStudySpaceSeed(userId) {
-  const count = Number((await query('SELECT COUNT(*)::int AS c FROM study_tasks WHERE user_id=$1', [userId])).rows[0]?.c || 0);
-  if (count > 0) return;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const now = new Date();
-    const day = (offset, h, m=0) => { const d=new Date(now); d.setDate(d.getDate()+offset); d.setHours(h,m,0,0); return d; };
-    const tasks = [
-      ['Terminer la leçon 4 de Python','Python','high',45],
-      ['Faire les exercices sur les boucles','Python','high',60],
-      ['Réviser 20 mots allemands','Allemand B1','medium',25],
-      ['Lire 10 pages de Machine Learning','Machine Learning','medium',30]
-    ];
-    for (const [title,category,priority,minutes] of tasks) {
-      await client.query(`INSERT INTO study_tasks(user_id,title,category,priority,estimated_minutes,due_at)
-        VALUES($1,$2,$3,$4,$5,$6)`, [userId,title,category,priority,minutes,day(0,20)]);
-    }
-    const events = [
-      ['Python débutants','Module 3 – Fonctions','Python',0,9,0,10,30,'#7bcf93'],
-      ['Projet StudyLink','Développement du MVP','Projet',0,13,0,15,0,'#78a7ff'],
-      ['Mathématiques','Algèbre linéaire','Mathématiques',0,16,0,17,30,'#aa87e8'],
-      ['Allemand B1','Vocabulaire','Allemand B1',0,19,0,20,0,'#72c98f'],
-      ['Lecture','Deep Work','Lecture',1,11,0,12,0,'#f6bf59'],
-      ['Machine Learning','Régression linéaire','Machine Learning',2,14,0,15,30,'#1768ff']
-    ];
-    for (const [title,desc,cat,off,sh,sm,eh,em,color] of events) {
-      await client.query(`INSERT INTO study_planner_events(user_id,title,description,category,color,start_at,end_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7)`, [userId,title,desc,cat,color,day(off,sh,sm),day(off,eh,em)]);
-    }
-    const notes = [
-      ['Différence list / tuple','En Python, une list est mutable tandis qu’un tuple est immuable. À revoir avec des exemples de performance.','Python',['python','structures']],
-      ['Régression linéaire — résumé','La régression linéaire modélise la relation entre une variable dépendante et une ou plusieurs variables indépendantes.\n\nÀ revoir : interprétation des résidus et R².','Machine Learning',['régression','statistiques']],
-      ['Vocabulaire B1 semaine 3','Bewerbung, Erfahrung, Fähigkeit, Vorstellungsgespräch, zuverlässig, selbstständig.','Allemand B1',['vocabulaire','allemand']],
-      ['Idées de projets ML','Prédiction des prix immobiliers\nClassification d’images\nDétection d’anomalies','Idées',['machine learning','projets']]
-    ];
-    for (let i=0;i<notes.length;i++) {
-      const [title,content,category,tags]=notes[i];
-      await client.query(`INSERT INTO study_notes(user_id,title,content,category,tags,favorite)
-        VALUES($1,$2,$3,$4,$5,$6)`, [userId,title,content,category,tags,i<2]);
-    }
-    const goals = [
-      ['Apprendre Python','Maîtriser les bases et construire des projets.','Python','#1768ff','high',42,90,4,['Variables','Conditions','Fonctions','Classes','Projet final']],
-      ['Allemand B1','Atteindre le niveau B1 en 12 semaines.','Allemand B1','#2eaf5d','medium',58,120,3,['Compréhension orale','Vocabulaire','Grammaire','Expression orale']],
-      ['Préparation entretien','Me préparer pour décrocher le poste.','Carrière','#7c4dff','high',35,60,2,['CV','Pitch','Simulation RH','Questions fréquentes','Entretien blanc']],
-      ['Machine Learning','Comprendre les algorithmes et expérimenter.','Machine Learning','#1768ff','medium',24,150,5,['Régression','Classification','Validation','Projet']]
-    ];
-    for (const [title,desc,category,color,priority,progress,days,effort,milestones] of goals) {
-      const target=new Date(now); target.setDate(target.getDate()+days);
-      const g=(await client.query(`INSERT INTO study_goals(user_id,title,description,category,color,target_date,effort_hours_per_week,priority,progress_percent)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [userId,title,desc,category,color,target,effort,priority,progress])).rows[0];
-      for (let i=0;i<milestones.length;i++) {
-        const done = (i / milestones.length * 100) < progress;
-        await client.query(`INSERT INTO study_goal_milestones(goal_id,title,position,completed_at)
-          VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END)`, [g.id,milestones[i],i+1,done]);
-      }
-    }
-    await client.query('COMMIT');
-  } catch (e) { await client.query('ROLLBACK'); throw e; }
-  finally { client.release(); }
-}
-
 router.get('/study-space/dashboard', requireAuth, async (req,res) => {
   try {
-    await ensureStudySpaceSeed(req.user.id);
-    const [tasks,events,notes,goals,focus,bookings,learning,materials] = await Promise.all([
+    const [tasks,events,notes,goals,focus,distractions,bookings,learning,materials] = await Promise.all([
       query(`SELECT * FROM study_tasks WHERE user_id=$1 AND (completed_at IS NULL OR completed_at >= CURRENT_DATE) ORDER BY completed_at NULLS FIRST, due_at NULLS LAST, created_at`,[req.user.id]),
       query(`SELECT * FROM study_planner_events WHERE user_id=$1 AND start_at >= date_trunc('day',now()) - interval '1 day' AND start_at < date_trunc('day',now()) + interval '8 days' ORDER BY start_at`,[req.user.id]),
       query(`SELECT * FROM study_notes WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 12`,[req.user.id]),
       query(`SELECT g.*, COALESCE(json_agg(json_build_object('id',m.id,'title',m.title,'position',m.position,'completed_at',m.completed_at) ORDER BY m.position) FILTER (WHERE m.id IS NOT NULL),'[]'::json) milestones
         FROM study_goals g LEFT JOIN study_goal_milestones m ON m.goal_id=g.id WHERE g.user_id=$1 AND g.status='active' GROUP BY g.id ORDER BY g.created_at`,[req.user.id]),
-      query(`SELECT * FROM study_focus_sessions WHERE user_id=$1 ORDER BY started_at DESC LIMIT 20`,[req.user.id]),
+      query(`SELECT * FROM study_focus_sessions WHERE user_id=$1 ORDER BY started_at DESC LIMIT 50`,[req.user.id]),
+      query(`SELECT * FROM study_distractions WHERE user_id=$1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 20`,[req.user.id]),
       query(`SELECT b.*, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar FROM bookings b JOIN tutor_profiles tp ON tp.id=b.tutor_id JOIN users u ON u.id=tp.user_id WHERE b.student_id=$1 AND b.start_time >= now() AND b.status IN ('confirmed','pending') ORDER BY b.start_time LIMIT 5`,[req.user.id]),
       query(`SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`,[req.user.id]),
       query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id])
     ]);
-    ok(res,{tasks:tasks.rows,events:events.rows,notes:notes.rows,goals:goals.rows,focus_sessions:focus.rows,bookings:bookings.rows,learning:learning.rows,materials:materials.rows});
+    ok(res,{tasks:tasks.rows,events:events.rows,notes:notes.rows,goals:goals.rows,focus_sessions:focus.rows,distractions:distractions.rows,bookings:bookings.rows,learning:learning.rows,materials:materials.rows});
   } catch(e){ fail(res,e); }
 });
 
@@ -907,7 +845,7 @@ router.post('/study-space/goals', requireAuth, async(req,res)=>{try{const {title
 router.patch('/study-space/goals/:id', requireAuth, async(req,res)=>{try{const c=(await query('SELECT * FROM study_goals WHERE id=$1 AND user_id=$2',[req.params.id,req.user.id])).rows[0];if(!c)return res.status(404).json({error:'Objectif introuvable.'});const b=req.body||{};const r=await query(`UPDATE study_goals SET title=$1,description=$2,category=$3,color=$4,target_date=$5,effort_hours_per_week=$6,priority=$7,progress_percent=$8,status=$9,updated_at=now() WHERE id=$10 AND user_id=$11 RETURNING *`,[b.title??c.title,b.description??c.description,b.category??c.category,b.color??c.color,b.target_date===undefined?c.target_date:b.target_date,Number(b.effort_hours_per_week??c.effort_hours_per_week),b.priority??c.priority,Math.max(0,Math.min(100,Number(b.progress_percent??c.progress_percent))),b.status??c.status,req.params.id,req.user.id]);ok(res,{goal:r.rows[0]});}catch(e){fail(res,e);}});
 router.post('/study-space/milestones/:id/toggle', requireAuth, async(req,res)=>{try{const r=await query(`UPDATE study_goal_milestones m SET completed_at=CASE WHEN completed_at IS NULL THEN now() ELSE NULL END FROM study_goals g WHERE m.id=$1 AND m.goal_id=g.id AND g.user_id=$2 RETURNING m.*`,[req.params.id,req.user.id]);if(!r.rows[0])return res.status(404).json({error:'Étape introuvable.'});const goalId=(await query('SELECT goal_id FROM study_goal_milestones WHERE id=$1',[req.params.id])).rows[0].goal_id;const stats=(await query(`SELECT COUNT(*)::int total,COUNT(completed_at)::int done FROM study_goal_milestones WHERE goal_id=$1`,[goalId])).rows[0];const progress=stats.total?Math.round(stats.done*10000/stats.total)/100:0;await query(`UPDATE study_goals SET progress_percent=$1,status=CASE WHEN $1>=100 THEN 'completed' ELSE 'active' END,updated_at=now() WHERE id=$2`,[progress,goalId]);ok(res,{milestone:r.rows[0],progress_percent:progress});}catch(e){fail(res,e);}});
 
-router.get('/study-space/stats', requireAuth, async(req,res)=>{try{await ensureStudySpaceSeed(req.user.id);const [summary,daily,subjects,goals] = await Promise.all([
+router.get('/study-space/stats', requireAuth, async(req,res)=>{try{const [summary,daily,subjects,goals] = await Promise.all([
   query(`SELECT COALESCE(SUM(elapsed_seconds),0)::int total_seconds,COUNT(*)::int sessions,COALESCE(ROUND(AVG(focus_score),1),0) avg_focus,COUNT(*) FILTER (WHERE status='completed')::int completed_sessions FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days'`,[req.user.id]),
   query(`SELECT DATE(started_at) day,COALESCE(SUM(elapsed_seconds),0)::int seconds,COUNT(*)::int sessions,COALESCE(ROUND(AVG(focus_score),1),0) focus FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '13 days' GROUP BY DATE(started_at) ORDER BY day`,[req.user.id]),
   query(`SELECT category,COALESCE(SUM(elapsed_seconds),0)::int seconds FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days' GROUP BY category ORDER BY seconds DESC`,[req.user.id]),

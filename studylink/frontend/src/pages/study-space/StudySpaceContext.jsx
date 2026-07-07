@@ -1,19 +1,53 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { localStudySeed } from './studySpaceData.js';
 
 const Ctx=createContext(null);
-const key=(uid)=>`studylink_study_space_${uid||'guest'}`;
+const emptyData=()=>({tasks:[],events:[],notes:[],goals:[],focus_sessions:[],distractions:[],bookings:[],learning:[],materials:[]});
+const key=(uid)=>`studylink_study_space_real_v2_${uid||'guest'}`;
 
 export function StudySpaceProvider({children}){
   const {token,user}=useAuth();
-  const [data,setData]=useState(null); const [loading,setLoading]=useState(true); const [offline,setOffline]=useState(false);
-  const saveLocal=(next)=>{ setData(next); try{localStorage.setItem(key(user?.id),JSON.stringify(next));}catch{} };
-  const fallback=()=>{ try{const raw=localStorage.getItem(key(user?.id)); return raw?JSON.parse(raw):localStudySeed();}catch{return localStudySeed();} };
-  async function refresh(){ setLoading(true); if(!token){saveLocal(fallback());setLoading(false);return;} try{const r=await api.getStudySpaceDashboard(token);setData(r);setOffline(false);}catch(e){console.warn('Study Space fallback',e);saveLocal(fallback());setOffline(true);}finally{setLoading(false);} }
+  const [data,setData]=useState(emptyData());
+  const [loading,setLoading]=useState(true);
+  const [offline,setOffline]=useState(false);
+  const [error,setError]=useState('');
+
+  const saveSnapshot=(next)=>{
+    const safe={...emptyData(),...(next||{})};
+    setData(safe);
+    try{localStorage.setItem(key(user?.id),JSON.stringify(safe));}catch{}
+  };
+  const cachedSnapshot=()=>{
+    try{const raw=localStorage.getItem(key(user?.id));return raw?{...emptyData(),...JSON.parse(raw)}:emptyData();}
+    catch{return emptyData();}
+  };
+
+  async function refresh(){
+    setLoading(true);setError('');
+    if(!token){setData(emptyData());setOffline(false);setLoading(false);return;}
+    try{
+      const r=await api.getStudySpaceDashboard(token);
+      saveSnapshot(r);
+      setOffline(false);
+    }catch(e){
+      console.error('Study Space API',e);
+      setData(cachedSnapshot());
+      setOffline(true);
+      setError(e?.message||'Impossible de charger vos données personnelles.');
+    }finally{setLoading(false);}
+  }
   useEffect(()=>{refresh();},[token,user?.id]);
-  const optimistic=async(localUpdater,remoteCall)=>{const before=data;const next=localUpdater(data);saveLocal(next);if(token&&!offline){try{const r=await remoteCall();await refresh();return r;}catch(e){console.error(e);saveLocal(before);throw e;}}};
+
+  const optimistic=async(localUpdater,remoteCall)=>{
+    const before=data;
+    const next=localUpdater({...emptyData(),...data});
+    saveSnapshot(next);
+    if(!token) return null;
+    try{const r=await remoteCall();await refresh();return r;}
+    catch(e){saveSnapshot(before);setError(e?.message||'La modification n’a pas pu être enregistrée.');throw e;}
+  };
+
   const actions=useMemo(()=>({
     addTask:(p)=>optimistic(d=>({...d,tasks:[...d.tasks,{...p,id:`local-${Date.now()}`,completed_at:null}]}),()=>api.createStudyTask(p,token)),
     toggleTask:(t)=>optimistic(d=>({...d,tasks:d.tasks.map(x=>x.id===t.id?{...x,completed_at:x.completed_at?null:new Date().toISOString()}:x)}),()=>api.updateStudyTask(t.id,{completed:!t.completed_at},token)),
@@ -28,7 +62,8 @@ export function StudySpaceProvider({children}){
     toggleMilestone:(goalId,m)=>optimistic(d=>({...d,goals:d.goals.map(g=>g.id===goalId?{...g,milestones:g.milestones.map(x=>x.id===m.id?{...x,completed_at:x.completed_at?null:new Date().toISOString()}:x)}:g)}),()=>api.toggleStudyMilestone(m.id,token)),
     addFocus:(p)=>optimistic(d=>({...d,focus_sessions:[{...p,id:`local-${Date.now()}`,elapsed_seconds:0,status:'active',started_at:new Date().toISOString()},...d.focus_sessions]}),()=>api.startFocusSession(p,token)),
     updateFocus:(id,p)=>optimistic(d=>({...d,focus_sessions:d.focus_sessions.map(x=>x.id===id?{...x,...p}:x)}),()=>api.updateFocusSession(id,p,token)),
-  }),[data,token,offline]);
-  return <Ctx.Provider value={{data,loading,offline,refresh,...actions}}>{children}</Ctx.Provider>;
+  }),[data,token]);
+
+  return <Ctx.Provider value={{data,loading,offline,error,refresh,...actions}}>{children}</Ctx.Provider>;
 }
 export const useStudySpace=()=>useContext(Ctx);
