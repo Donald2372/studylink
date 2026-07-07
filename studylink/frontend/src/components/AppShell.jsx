@@ -48,7 +48,7 @@ export function AppShell({ children, wide = false }) {
               ['/', '⌂', 'Accueil'], ['/search', '⌕', 'Tuteurs'], ['/catalogue', '▤', 'Catalogue'],
               ['/personal-development', '✦', 'Développement perso'], ['/entrepreneurship', '↗', 'Entrepreneuriat'],
               ['/bootcamps', '⚑', 'Bootcamps'], ['/career-prep', '◎', 'Carrière'], ['/materials', '▱', 'Documents'],
-              ['/forum', '◌', 'Forum'], ['/messages', '□', 'Messages'], ['/bookings', '◉', 'Sessions'], ['/profile', '○', 'Profil'],
+              ['/forum', '◌', 'Forum'], ['/messages', '□', 'Messages'], ['/bookings', '◉', 'Sessions'], ['/study-space', '⌂', 'Espace d’étude'], ['/profile', '○', 'Profil'],
               ...(user?.role === 'admin' ? [['/admin', '⚙', 'Administration']] : [])
             ].map(([to, icon, label]) => (
               <NavLink key={to} to={to} className={({isActive}) => isActive ? 'side-link active' : 'side-link'}>

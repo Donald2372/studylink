@@ -22,6 +22,8 @@ import CourseCertificatePage from './pages/learning/CourseCertificatePage.jsx';
 import TutorialPage from './pages/learning/TutorialPage.jsx';
 import BootcampsPage from './pages/bootcamps/BootcampsPage.jsx';
 import CareerPrepPage from './pages/career/CareerPrepPage.jsx';
+import CareerToolPage from './pages/career/CareerToolPage.jsx';
+import CareerResourcePage from './pages/career/CareerResourcePage.jsx';
 import PersonalDevelopmentPage from './pages/personal-development/PersonalDevelopmentPage.jsx';
 import PersonalProgramPage from './pages/personal-development/PersonalProgramPage.jsx';
 import PersonalBooksPage from './pages/personal-development/PersonalBooksPage.jsx';
@@ -41,6 +43,7 @@ import CourseFormPage from './pages/admin/CourseFormPage.jsx';
 import CourseStructurePage from './pages/admin/CourseStructurePage.jsx';
 import GenericContentPage from './pages/admin/GenericContentPage.jsx';
 import AdminUsersPage from './pages/admin/AdminUsersPage.jsx';
+import { StudySpaceProvider, StudyTodayPage, StudyFocusPage, StudyPlanningPage, StudyGoalsPage, StudyNotesPage, StudyStatsPage } from './pages/study-space/index.jsx';
 
 
 export default function App(){return <Routes>
@@ -68,6 +71,8 @@ export default function App(){return <Routes>
   <Route path="/tutorials/:id" element={<TutorialPage/>}/>
   <Route path="/bootcamps" element={<BootcampsPage/>}/>
   <Route path="/career-prep" element={<CareerPrepPage/>}/>
+  <Route path="/career-prep/resource/:slug" element={<CareerResourcePage/>}/>
+  <Route path="/career-prep/:tool" element={<CareerToolPage/>}/>
   <Route path="/personal-development" element={<PersonalDevelopmentPage/>}/>
   <Route path="/personal-development/programs/:id" element={<PersonalProgramPage/>}/>
   <Route path="/personal-development/books" element={<PersonalBooksPage/>}/>
@@ -77,6 +82,12 @@ export default function App(){return <Routes>
   <Route path="/entrepreneurship/business-plan" element={<BusinessPlanCoursePage/>}/>
   <Route path="/entrepreneurship/toolkit" element={<EntrepreneurToolkitPage/>}/>
   <Route path="/entrepreneurship/project" element={<EntrepreneurProjectPage/>}/>
+  <Route path="/study-space" element={<StudySpaceProvider><StudyTodayPage/></StudySpaceProvider>}/>
+  <Route path="/study-space/focus" element={<StudySpaceProvider><StudyFocusPage/></StudySpaceProvider>}/>
+  <Route path="/study-space/planning" element={<StudySpaceProvider><StudyPlanningPage/></StudySpaceProvider>}/>
+  <Route path="/study-space/goals" element={<StudySpaceProvider><StudyGoalsPage/></StudySpaceProvider>}/>
+  <Route path="/study-space/notes" element={<StudySpaceProvider><StudyNotesPage/></StudySpaceProvider>}/>
+  <Route path="/study-space/stats" element={<StudySpaceProvider><StudyStatsPage/></StudySpaceProvider>}/>
   <Route path="/profile" element={<Profile/>}/>
   <Route path="/admin" element={<AdminGuard><AdminLayout/></AdminGuard>}>
     <Route index element={<AdminDashboardPage/>}/>
