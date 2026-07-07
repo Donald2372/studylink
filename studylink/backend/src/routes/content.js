@@ -705,4 +705,61 @@ router.patch('/notifications/:id/read', requireAuth, async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+
+// -----------------------------------------------------------------------------
+// CARRIERE : TABLEAU DE BORD, OUTILS, CV ET PRATIQUE
+// -----------------------------------------------------------------------------
+router.get('/career/dashboard', requireAuth, async (req, res) => {
+  try {
+    const [resources, questions, sessions, cvs, goals, stats, mentors] = await Promise.all([
+      query(`SELECT * FROM career_resources ORDER BY created_at DESC LIMIT 30`),
+      query(`SELECT * FROM career_interview_questions ORDER BY category,sort_order LIMIT 80`),
+      query(`SELECT cs.*, tp.user_id AS mentor_user_id, u.full_name AS mentor_name, u.avatar_url AS mentor_avatar,
+        tp.professional_title AS mentor_title, b.start_time, b.end_time
+        FROM career_sessions cs LEFT JOIN tutor_profiles tp ON tp.id=cs.mentor_id
+        LEFT JOIN users u ON u.id=tp.user_id LEFT JOIN bookings b ON b.id=cs.booking_id
+        WHERE cs.student_id=$1 ORDER BY COALESCE(b.start_time,cs.created_at) DESC LIMIT 20`, [req.user.id]),
+      query(`SELECT * FROM career_cv_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20`, [req.user.id]),
+      query(`SELECT * FROM career_user_goals WHERE user_id=$1 LIMIT 1`, [req.user.id]),
+      query(`SELECT COUNT(*)::int AS attempts, COALESCE(ROUND(AVG(confidence),1),0) AS avg_confidence
+        FROM career_practice_attempts WHERE user_id=$1`, [req.user.id]),
+      query(`SELECT tp.id AS tutor_id,tp.user_id,u.full_name,u.avatar_url,tp.professional_title,tp.bio,tp.hourly_rate,
+        tp.experience_years,COALESCE(AVG(r.rating),0)::numeric(3,2) AS rating,COUNT(r.id)::int AS review_count
+        FROM tutor_profiles tp JOIN users u ON u.id=tp.user_id LEFT JOIN reviews r ON r.tutor_id=tp.id
+        WHERE lower(COALESCE(tp.professional_title,'')) ~ '(career|recrut|rh|emploi|soft|coach|mentor)'
+        OR lower(COALESCE(tp.bio,'')) ~ '(career|recrut|entretien|cv|emploi)'
+        GROUP BY tp.id,u.id ORDER BY rating DESC,experience_years DESC LIMIT 6`)
+    ]);
+    ok(res, {
+      resources: resources.rows,
+      questions: questions.rows,
+      sessions: sessions.rows,
+      cv_submissions: cvs.rows,
+      goals: goals.rows[0] || null,
+      stats: stats.rows[0],
+      mentors: mentors.rows
+    });
+  } catch (e) { fail(res,e); }
+});
+
+router.post('/career/practice', requireAuth, async (req,res) => {
+  try {
+    const { question_id, answer_text='', confidence=3 } = req.body || {};
+    const r=await query(`INSERT INTO career_practice_attempts(user_id,question_id,answer_text,confidence)
+      VALUES($1,$2,$3,$4) RETURNING *`,[req.user.id,question_id||null,String(answer_text).trim(),Math.max(1,Math.min(5,Number(confidence)||3))]);
+    ok(res,{attempt:r.rows[0]},201);
+  } catch(e){ fail(res,e); }
+});
+
+router.post('/career/goals', requireAuth, async (req,res) => {
+  try {
+    const { target_role='',target_sector='',target_location='',interview_date=null,weekly_target=3 }=req.body||{};
+    const r=await query(`INSERT INTO career_user_goals(user_id,target_role,target_sector,target_location,interview_date,weekly_target)
+      VALUES($1,$2,$3,$4,$5,$6)
+      ON CONFLICT(user_id) DO UPDATE SET target_role=$2,target_sector=$3,target_location=$4,interview_date=$5,weekly_target=$6,updated_at=now()
+      RETURNING *`,[req.user.id,target_role,target_sector,target_location,interview_date||null,Math.max(1,Math.min(14,Number(weekly_target)||3))]);
+    ok(res,{goals:r.rows[0]});
+  } catch(e){ fail(res,e); }
+});
+
 export default router;
