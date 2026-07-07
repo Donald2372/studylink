@@ -718,10 +718,13 @@ router.get('/career/dashboard', requireAuth, async (req, res) => {
       query(`SELECT * FROM career_resources ORDER BY created_at DESC LIMIT 30`),
       query(`SELECT * FROM career_interview_questions ORDER BY category,sort_order LIMIT 80`),
       query(`SELECT cs.*, tp.user_id AS mentor_user_id, u.full_name AS mentor_name, u.avatar_url AS mentor_avatar,
-        tp.professional_title AS mentor_title, b.start_time, b.end_time
-        FROM career_sessions cs LEFT JOIN tutor_profiles tp ON tp.id=cs.mentor_id
-        LEFT JOIN users u ON u.id=tp.user_id LEFT JOIN bookings b ON b.id=cs.booking_id
-        WHERE cs.student_id=$1 ORDER BY COALESCE(b.start_time,cs.created_at) DESC LIMIT 20`, [req.user.id]),
+        tp.professional_title AS mentor_title, s.start_time, s.end_time
+        FROM career_sessions cs
+        LEFT JOIN tutor_profiles tp ON tp.id=cs.mentor_id
+        LEFT JOIN users u ON u.id=tp.user_id
+        LEFT JOIN bookings b ON b.id=cs.booking_id
+        LEFT JOIN availability_slots s ON s.id=b.slot_id
+        WHERE cs.student_id=$1 ORDER BY COALESCE(s.start_time,cs.created_at) DESC LIMIT 20`, [req.user.id]),
       query(`SELECT * FROM career_cv_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20`, [req.user.id]),
       query(`SELECT * FROM career_user_goals WHERE user_id=$1 LIMIT 1`, [req.user.id]),
       query(`SELECT COUNT(*)::int AS attempts, COALESCE(ROUND(AVG(confidence),1),0) AS avg_confidence
@@ -804,7 +807,13 @@ router.get('/study-space/dashboard', requireAuth, async (req,res) => {
         FROM study_goals g LEFT JOIN study_goal_milestones m ON m.goal_id=g.id WHERE g.user_id=$1 AND g.status='active' GROUP BY g.id ORDER BY g.created_at`,[req.user.id]),
       query(`SELECT * FROM study_focus_sessions WHERE user_id=$1 ORDER BY started_at DESC LIMIT 50`,[req.user.id]),
       query(`SELECT * FROM study_distractions WHERE user_id=$1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 20`,[req.user.id]),
-      query(`SELECT b.*, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar FROM bookings b JOIN tutor_profiles tp ON tp.id=b.tutor_id JOIN users u ON u.id=tp.user_id WHERE b.student_id=$1 AND b.start_time >= now() AND b.status IN ('confirmed','pending') ORDER BY b.start_time LIMIT 5`,[req.user.id]),
+      query(`SELECT b.*, s.start_time, s.end_time, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar
+        FROM bookings b
+        JOIN availability_slots s ON s.id=b.slot_id
+        JOIN tutor_profiles tp ON tp.id=b.tutor_id
+        JOIN users u ON u.id=tp.user_id
+        WHERE b.student_id=$1 AND s.start_time >= now() AND b.status IN ('confirmed','pending')
+        ORDER BY s.start_time LIMIT 5`,[req.user.id]),
       query(`SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`,[req.user.id]),
       query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id])
     ]);
