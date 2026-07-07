@@ -3,7 +3,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 const Ctx=createContext(null);
-const emptyData=()=>({tasks:[],events:[],notes:[],goals:[],focus_sessions:[],distractions:[],bookings:[],learning:[],materials:[]});
+const emptyData=()=>({tasks:[],events:[],notes:[],goals:[],focus_sessions:[],distractions:[],bookings:[],learning:[],materials:[],recommended_courses:[],public_materials:[]});
 const key=(uid)=>`studylink_study_space_real_v2_${uid||'guest'}`;
 
 export function StudySpaceProvider({children}){

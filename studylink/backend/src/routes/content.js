@@ -799,7 +799,7 @@ router.post('/career/goals', requireAuth, async (req,res) => {
 // -----------------------------------------------------------------------------
 router.get('/study-space/dashboard', requireAuth, async (req,res) => {
   try {
-    const [tasks,events,notes,goals,focus,distractions,bookings,learning,materials] = await Promise.all([
+    const [tasks,events,notes,goals,focus,distractions,bookings,learning,materials,recommendedCourses,publicMaterials] = await Promise.all([
       query(`SELECT * FROM study_tasks WHERE user_id=$1 AND (completed_at IS NULL OR completed_at >= CURRENT_DATE) ORDER BY completed_at NULLS FIRST, due_at NULLS LAST, created_at`,[req.user.id]),
       query(`SELECT * FROM study_planner_events WHERE user_id=$1 AND start_at >= date_trunc('day',now()) - interval '1 day' AND start_at < date_trunc('day',now()) + interval '8 days' ORDER BY start_at`,[req.user.id]),
       query(`SELECT * FROM study_notes WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 12`,[req.user.id]),
@@ -815,9 +815,16 @@ router.get('/study-space/dashboard', requireAuth, async (req,res) => {
         WHERE b.student_id=$1 AND s.start_time >= now() AND b.status IN ('confirmed','pending')
         ORDER BY s.start_time LIMIT 5`,[req.user.id]),
       query(`SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`,[req.user.id]),
-      query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id])
+      query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id]),
+      query(`SELECT c.id,c.title,c.description,c.cover_url,c.level,c.estimated_duration_minutes,lc.name AS category
+        FROM courses c LEFT JOIN learning_categories lc ON lc.id=c.category_id
+        WHERE c.status='published' AND NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id=c.id AND ce.user_id=$1)
+        ORDER BY c.created_at DESC LIMIT 6`,[req.user.id]),
+      query(`SELECT cf.id,cf.title,cf.file_url,cf.file_type,cf.created_at,c.title AS course_title,c.id AS course_id
+        FROM course_files cf JOIN courses c ON c.id=cf.course_id
+        WHERE c.status='published' ORDER BY cf.created_at DESC LIMIT 8`)
     ]);
-    ok(res,{tasks:tasks.rows,events:events.rows,notes:notes.rows,goals:goals.rows,focus_sessions:focus.rows,distractions:distractions.rows,bookings:bookings.rows,learning:learning.rows,materials:materials.rows});
+    ok(res,{tasks:tasks.rows,events:events.rows,notes:notes.rows,goals:goals.rows,focus_sessions:focus.rows,distractions:distractions.rows,bookings:bookings.rows,learning:learning.rows,materials:materials.rows,recommended_courses:recommendedCourses.rows,public_materials:publicMaterials.rows});
   } catch(e){ fail(res,e); }
 });
 
