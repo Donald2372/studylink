@@ -18,22 +18,14 @@ function buildIceServers() {
   return servers;
 }
 
-function hasTurnServer(servers = []) {
-  return servers.some(server => {
-    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-    return urls.some(url => String(url || '').startsWith('turn:') || String(url || '').startsWith('turns:'));
-  });
-}
+const baseRtcConfig = {
+  iceCandidatePoolSize: 10,
+  bundlePolicy: 'max-bundle',
+};
 
 function safePayload(payload) {
   if (typeof payload !== 'string') return payload;
   try { return JSON.parse(payload); } catch { return payload; }
-}
-
-function fmtTime(seconds) {
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const ss = String(seconds % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
 }
 
 export default function CallPage() {
@@ -45,25 +37,20 @@ export default function CallPage() {
   const remoteVideo = useRef(null);
   const remoteAudio = useRef(null);
   const pcRef = useRef(null);
-  const localStreamRef = useRef(new MediaStream());
+  const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(new MediaStream());
   const screenStreamRef = useRef(null);
   const pollRef = useRef(null);
   const statusPollRef = useRef(null);
-  const retryRef = useRef(null);
   const lastSignalRef = useRef(0);
   const pendingIceRef = useRef([]);
   const processingSignalsRef = useRef(false);
   const mountedRef = useRef(true);
   const offerSentRef = useRef(false);
-  const mediaStartedRef = useRef(false);
-  const callerRef = useRef(false);
-  const acceptedRef = useRef(false);
 
   const [call, setCall] = useState(null);
   const [status, setStatus] = useState('Préparation de l’appel…');
   const [error, setError] = useState('');
-  const [warning, setWarning] = useState('');
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -72,7 +59,6 @@ export default function CallPage() {
   const [seconds, setSeconds] = useState(0);
   const [needsMediaPlay, setNeedsMediaPlay] = useState(false);
   const [debugState, setDebugState] = useState('Initialisation');
-  const [networkState, setNetworkState] = useState('Réseau en préparation');
 
   useEffect(() => {
     if (!token || !user?.id) return undefined;
@@ -82,14 +68,11 @@ export default function CallPage() {
     async function init() {
       try {
         setError('');
-        setWarning('');
         const data = await api.getCall(id, token);
         if (!mountedRef.current) return;
         const callData = data.call;
-        const isCaller = callData.caller_id === user.id;
-        callerRef.current = isCaller;
         setCall(callData);
-        acceptedRef.current = callData.status === 'accepted';
+        const isCaller = callData.caller_id === user.id;
         await startRtc(callData, isCaller);
       } catch (e) {
         if (!mountedRef.current) return;
@@ -106,11 +89,9 @@ export default function CallPage() {
       clearInterval(timer);
       clearInterval(pollRef.current);
       clearInterval(statusPollRef.current);
-      clearInterval(retryRef.current);
       pcRef.current?.close();
       localStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
-      remoteStreamRef.current?.getTracks().forEach(track => track.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token, user?.id]);
@@ -119,69 +100,33 @@ export default function CallPage() {
     const remoteStream = remoteStreamRef.current;
     let blocked = false;
 
-    const hasAudio = remoteStream.getAudioTracks().some(track => track.readyState === 'live');
-    const hasVideo = remoteStream.getVideoTracks().some(track => track.readyState === 'live');
-    setRemoteHasVideo(hasVideo);
-
+    // Toujours lire le son dans un élément audio dédié. Cela évite la perte du son
+    // quand le flux vidéo est remplacé par un partage d'écran.
     if (remoteAudio.current) {
       try {
         if (remoteAudio.current.srcObject !== remoteStream) remoteAudio.current.srcObject = remoteStream;
         remoteAudio.current.muted = false;
         remoteAudio.current.volume = 1;
-        if (hasAudio) await remoteAudio.current.play();
+        await remoteAudio.current.play();
       } catch {
         blocked = true;
       }
     }
 
-    if (remoteVideo.current) {
+    const hasVideo = remoteStream.getVideoTracks().some(track => track.readyState === 'live');
+    setRemoteHasVideo(hasVideo);
+    if (hasVideo && remoteVideo.current) {
       try {
         if (remoteVideo.current.srcObject !== remoteStream) remoteVideo.current.srcObject = remoteStream;
+        // Le son est lu par remoteAudio pour éviter un double son.
         remoteVideo.current.muted = true;
-        if (hasVideo) await remoteVideo.current.play();
+        await remoteVideo.current.play();
       } catch {
         blocked = true;
       }
     }
 
-    if (hasAudio || hasVideo) {
-      setStatus('Connecté');
-      setError('');
-    }
     setNeedsMediaPlay(blocked);
-  }
-
-  async function addLocalTracksToTransceivers(pc, stream, callType) {
-    const audioTrack = stream.getAudioTracks()[0] || null;
-    const cameraTrack = stream.getVideoTracks()[0] || null;
-
-    const audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
-    await audioTransceiver.sender.replaceTrack(audioTrack);
-
-    // Un canal vidéo existe toujours. Cela permet aussi de partager l'écran pendant un appel audio.
-    const videoTransceiver = pc.addTransceiver('video', { direction: 'sendrecv' });
-    await videoTransceiver.sender.replaceTrack(callType === 'video' ? cameraTrack : null);
-  }
-
-  async function getLocalMedia(callType) {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Ce navigateur ne prend pas en charge la caméra et le microphone.');
-    }
-
-    const wantsVideo = callType === 'video';
-    const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-    const video = wantsVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false;
-
-    try {
-      return await navigator.mediaDevices.getUserMedia({ audio, video });
-    } catch (firstError) {
-      if (wantsVideo) {
-        setWarning('La caméra n’a pas pu être ouverte. L’appel continue en audio, et le partage d’écran reste disponible.');
-        setCameraOff(true);
-        return await navigator.mediaDevices.getUserMedia({ audio, video: false });
-      }
-      throw firstError;
-    }
   }
 
   async function flushPendingIce(pc) {
@@ -192,29 +137,12 @@ export default function CallPage() {
     }
   }
 
-  async function createAndSendOffer(pc, reason = 'offre') {
-    if (!mountedRef.current || !callerRef.current || pc.signalingState !== 'stable') return;
-    setDebugState(`${reason}…`);
-    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-    await pc.setLocalDescription(offer);
-    await api.sendCallSignal(id, 'offer', pc.localDescription.toJSON(), token);
-    offerSentRef.current = true;
-    setStatus('Connexion…');
-    setDebugState(`${reason} envoyée`);
-  }
-
   async function processSignal(signal, pc) {
     const payload = safePayload(signal.payload);
 
     if (signal.signal_type === 'offer') {
+      if (pc.signalingState !== 'stable' || pc.remoteDescription) return;
       setDebugState('Offre reçue');
-
-      // En cas de retry, une nouvelle offre peut arriver alors qu'une ancienne existe déjà.
-      // On remplace proprement la description distante au lieu de bloquer l'appel.
-      if (pc.signalingState !== 'stable') {
-        try { await pc.setLocalDescription({ type: 'rollback' }); } catch {}
-      }
-
       await pc.setRemoteDescription(payload);
       await flushPendingIce(pc);
       const answer = await pc.createAnswer();
@@ -225,7 +153,7 @@ export default function CallPage() {
     }
 
     if (signal.signal_type === 'answer') {
-      if (pc.signalingState !== 'have-local-offer') return;
+      if (pc.signalingState !== 'have-local-offer' || pc.remoteDescription) return;
       setDebugState('Réponse reçue');
       await pc.setRemoteDescription(payload);
       await flushPendingIce(pc);
@@ -251,8 +179,9 @@ export default function CallPage() {
       const data = await api.getCallSignals(id, lastSignalRef.current, token);
       for (const signal of data.signals || []) {
         lastSignalRef.current = Math.max(lastSignalRef.current, Number(signal.id));
-        try { await processSignal(signal, pc); }
-        catch (e) {
+        try {
+          await processSignal(signal, pc);
+        } catch (e) {
           console.error('Erreur signal WebRTC', signal.signal_type, e);
           setDebugState(`Erreur ${signal.signal_type}`);
         }
@@ -265,19 +194,34 @@ export default function CallPage() {
   }
 
   async function startRtc(callData, isCaller) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Ce navigateur ne prend pas en charge la caméra et le microphone.');
+    }
+
     setStatus(isCaller && callData.status === 'ringing' ? 'Sonnerie…' : 'Connexion…');
     setDebugState('Accès caméra/micro');
 
-    const stream = await getLocalMedia(callData.call_type);
+    const constraints = {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: callData.call_type === 'video' ? {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user',
+      } : false,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     if (!mountedRef.current) {
       stream.getTracks().forEach(track => track.stop());
       return;
     }
 
     localStreamRef.current = stream;
-    mediaStartedRef.current = true;
-
-    if (localVideo.current && (callData.call_type === 'video' || stream.getVideoTracks().length)) {
+    if (localVideo.current && callData.call_type === 'video') {
       localVideo.current.srcObject = stream;
       localVideo.current.muted = true;
       localVideo.current.play().catch(() => {});
@@ -288,46 +232,42 @@ export default function CallPage() {
       const iceData = await api.getCallIceConfig(token);
       if (Array.isArray(iceData?.iceServers) && iceData.iceServers.length) {
         iceServers = iceData.iceServers;
-      }
-      const turnReady = hasTurnServer(iceServers);
-      setNetworkState(turnReady ? 'TURN actif : appel compatible réseaux différents' : 'STUN seul : test possible, mais réseau limité');
-      if (!turnReady) {
-        setWarning('Aucun serveur TURN n’est configuré. Sur deux réseaux différents, le flux audio/vidéo peut ne pas passer. Configure TURN sur Render pour rendre les appels fiables.');
+        setDebugState(iceData.provider === 'twilio' ? 'TURN sécurisé chargé' : `Réseau: ${iceData.provider || 'configuré'}`);
       }
     } catch (e) {
-      console.warn('Configuration ICE indisponible, fallback STUN', e);
-      setNetworkState('STUN seul : configuration réseau minimale');
-      setWarning('La configuration réseau avancée de l’appel est indisponible. Le flux peut échouer entre deux réseaux différents.');
+      console.warn('Configuration TURN indisponible, fallback STUN', e);
     }
 
-    const pc = new RTCPeerConnection({
-      iceServers,
-      iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require',
-    });
+    const pc = new RTCPeerConnection({ ...baseRtcConfig, iceServers });
     pcRef.current = pc;
     remoteStreamRef.current = new MediaStream();
 
-    await addLocalTracksToTransceivers(pc, stream, callData.call_type);
+    for (const track of stream.getTracks()) {
+      pc.addTrack(track, stream);
+    }
+
+    // Même un appel audio négocie désormais un canal vidéo vide. Ainsi le partage
+    // d'écran peut démarrer plus tard sans recréer entièrement la connexion.
+    if (callData.call_type === 'audio') {
+      pc.addTransceiver('video', { direction: 'sendrecv' });
+    }
 
     pc.ontrack = event => {
       const remoteStream = remoteStreamRef.current;
-      const track = event.track;
-      if (!remoteStream.getTracks().some(t => t.id === track.id)) remoteStream.addTrack(track);
-      if (event.streams?.[0]) {
-        for (const remoteTrack of event.streams[0].getTracks()) {
-          if (!remoteStream.getTracks().some(t => t.id === remoteTrack.id)) remoteStream.addTrack(remoteTrack);
-        }
+      const tracks = event.streams?.[0]?.getTracks?.() || [event.track];
+      for (const track of tracks) {
+        if (!remoteStream.getTracks().some(t => t.id === track.id)) remoteStream.addTrack(track);
       }
-      if (track.kind === 'video') setRemoteHasVideo(true);
-      track.onunmute = () => attachRemoteMedia();
-      track.onended = () => {
-        if (track.kind === 'video') {
-          setRemoteHasVideo(remoteStream.getVideoTracks().some(t => t.readyState === 'live'));
+      if (event.track.kind === 'video') setRemoteHasVideo(true);
+      event.track.onunmute = () => attachRemoteMedia();
+      event.track.onended = () => {
+        if (event.track.kind === 'video') {
+          const stillHasVideo = remoteStream.getVideoTracks().some(t => t.readyState === 'live');
+          setRemoteHasVideo(stillHasVideo);
         }
       };
-      setDebugState(`Flux distant reçu (${track.kind})`);
+      setStatus('Connecté');
+      setDebugState(`Flux distant reçu (${event.track.kind})`);
       attachRemoteMedia();
     };
 
@@ -336,33 +276,28 @@ export default function CallPage() {
         setDebugState('Candidats ICE envoyés');
         return;
       }
-      api.sendCallSignal(id, 'ice', event.candidate.toJSON(), token).catch(e => console.warn('Envoi ICE impossible', e));
+      api.sendCallSignal(id, 'ice', event.candidate.toJSON(), token).catch(e => {
+        console.warn('Envoi ICE impossible', e);
+      });
     };
-
-    pc.onicecandidateerror = event => {
-      console.warn('ICE candidate error', event);
-      setDebugState(`Erreur ICE ${event.errorCode || ''}`.trim());
-    };
-
-    pc.onicegatheringstatechange = () => setDebugState(`ICE gathering: ${pc.iceGatheringState}`);
-    pc.onsignalingstatechange = () => setDebugState(`Signal: ${pc.signalingState}`);
 
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
-      setNetworkState(`ICE: ${state}`);
+      setDebugState(`ICE: ${state}`);
       if (['connected', 'completed'].includes(state)) {
         setStatus('Connecté');
-        setError('');
         attachRemoteMedia();
       }
       if (state === 'checking') setStatus('Connexion des médias…');
-      if (state === 'disconnected') setStatus('Connexion interrompue');
       if (state === 'failed') {
         setStatus('Connexion média impossible');
-        const turnReady = hasTurnServer(iceServers);
-        setError(turnReady
-          ? 'Le flux média a échoué malgré TURN. Clique sur Relancer le flux, puis vérifie que micro/caméra sont autorisés.'
-          : 'Le flux média ne peut pas passer sans serveur TURN fiable. Configure TURN sur Render, puis relance l’appel.');
+        const hasTurn = iceServers.some(server => {
+          const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+          return urls.some(url => String(url || '').startsWith('turn:') || String(url || '').startsWith('turns:'));
+        });
+        setError(hasTurn
+          ? 'La connexion TURN a échoué. Vérifie les identifiants TURN et les journaux Render.'
+          : 'La connexion directe a échoué. Aucun serveur TURN n’est configuré sur le backend.');
       }
     };
 
@@ -380,46 +315,39 @@ export default function CallPage() {
     };
 
     await pollSignals(pc);
-    pollRef.current = setInterval(() => pollSignals(pc), 300);
+    pollRef.current = setInterval(() => pollSignals(pc), 350);
 
     statusPollRef.current = setInterval(async () => {
       try {
         const current = await api.getCall(id, token);
         if (!mountedRef.current) return;
         setCall(current.call);
-        acceptedRef.current = current.call.status === 'accepted';
 
         if (isCaller && current.call.status === 'accepted' && !offerSentRef.current) {
-          await createAndSendOffer(pc, 'Création de l’offre');
+          offerSentRef.current = true;
+          setDebugState('Création de l’offre');
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            // Toujours recevoir la vidéo afin que le partage d'écran fonctionne
+            // également pendant un appel initialement audio.
+            offerToReceiveVideo: true,
+          });
+          await pc.setLocalDescription(offer);
+          await api.sendCallSignal(id, 'offer', pc.localDescription.toJSON(), token);
+          setStatus('Connexion…');
+          setDebugState('Offre envoyée');
         }
 
         if (['rejected', 'ended', 'missed'].includes(current.call.status)) {
           setStatus(current.call.status === 'rejected' ? 'Appel refusé' : 'Appel terminé');
           clearInterval(statusPollRef.current);
           clearInterval(pollRef.current);
-          clearInterval(retryRef.current);
           setTimeout(() => nav('/messages'), 1200);
         }
       } catch (e) {
         console.warn('Polling état appel', e);
       }
-    }, 600);
-
-    // Sécurité: si le premier échange SDP n'a pas abouti, le caller renvoie une offre.
-    // Cela évite les appels bloqués en "Connexion" après une latence Render ou un signal perdu.
-    retryRef.current = setInterval(async () => {
-      if (!mountedRef.current || !callerRef.current) return;
-      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') return;
-      if (!acceptedRef.current) return;
-      try {
-        if (pc.signalingState === 'stable') {
-          pc.restartIce?.();
-          await createAndSendOffer(pc, 'Relance du flux');
-        }
-      } catch (e) {
-        console.warn('Relance WebRTC impossible', e);
-      }
-    }, 8000);
+    }, 700);
   }
 
   async function enableRemoteMedia() {
@@ -441,6 +369,8 @@ export default function CallPage() {
   function getVideoSender() {
     const pc = pcRef.current;
     if (!pc) return null;
+    // En appel audio, sender.track est null. Il faut donc retrouver le sender
+    // via son transceiver vidéo et non via sender.track.kind.
     const transceiver = pc.getTransceivers().find(t => t.receiver?.track?.kind === 'video');
     if (transceiver?.sender) return transceiver.sender;
     return pc.getSenders().find(s => s.track?.kind === 'video') || null;
@@ -448,10 +378,10 @@ export default function CallPage() {
 
   async function restoreCameraAfterShare(sender) {
     const cameraTrack = localStreamRef.current?.getVideoTracks()[0] || null;
-    await sender.replaceTrack(cameraTrack && !cameraOff ? cameraTrack : null);
+    await sender.replaceTrack(cameraTrack);
     if (localVideo.current) {
-      localVideo.current.srcObject = cameraTrack && !cameraOff ? localStreamRef.current : null;
-      if (cameraTrack && !cameraOff) localVideo.current.play().catch(() => {});
+      localVideo.current.srcObject = cameraTrack ? localStreamRef.current : null;
+      if (cameraTrack) localVideo.current.play().catch(() => {});
     }
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
     screenStreamRef.current = null;
@@ -467,7 +397,7 @@ export default function CallPage() {
 
     const sender = getVideoSender();
     if (!sender) {
-      setError('Le canal de partage d’écran n’est pas disponible. Relance l’appel.');
+      setError('Le canal de partage d’écran n’est pas disponible. Reconnecte l’appel.');
       return;
     }
 
@@ -478,7 +408,10 @@ export default function CallPage() {
 
     try {
       setError('');
-      const screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false });
+      const screen = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 15, max: 30 } },
+        audio: false,
+      });
       screenStreamRef.current = screen;
       const screenTrack = screen.getVideoTracks()[0];
       if (!screenTrack) throw new Error('Aucun écran n’a été sélectionné.');
@@ -490,31 +423,17 @@ export default function CallPage() {
         localVideo.current.play().catch(() => {});
       }
 
-      screenTrack.onended = () => restoreCameraAfterShare(sender).catch(e => console.warn('Retour caméra impossible', e));
+      screenTrack.onended = () => {
+        restoreCameraAfterShare(sender).catch(e => console.warn('Retour caméra impossible', e));
+      };
       setSharing(true);
       setDebugState('Partage d’écran actif');
     } catch (e) {
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
-      if (e?.name !== 'NotAllowedError' && e?.name !== 'AbortError') setError(e.message || "Impossible de partager l'écran.");
-    }
-  }
-
-  async function retryMediaFlow() {
-    const pc = pcRef.current;
-    if (!pc) return;
-    try {
-      setError('');
-      setStatus('Relance du flux…');
-      await attachRemoteMedia();
-      if (callerRef.current && pc.signalingState === 'stable') {
-        pc.restartIce?.();
-        await createAndSendOffer(pc, 'Relance manuelle du flux');
-      } else {
-        await pollSignals(pc);
+      if (e?.name !== 'NotAllowedError' && e?.name !== 'AbortError') {
+        setError(e.message || "Impossible de partager l'écran.");
       }
-    } catch (e) {
-      setError(e.message || 'Impossible de relancer le flux.');
     }
   }
 
@@ -522,7 +441,6 @@ export default function CallPage() {
     try { await api.endCall(id, token); } catch {}
     clearInterval(pollRef.current);
     clearInterval(statusPollRef.current);
-    clearInterval(retryRef.current);
     pcRef.current?.close();
     localStreamRef.current?.getTracks().forEach(track => track.stop());
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -532,7 +450,9 @@ export default function CallPage() {
   const otherName = call ? (call.caller_id === user?.id ? call.callee_name : call.caller_name) : 'Utilisateur';
   const isAudioCall = call?.call_type === 'audio';
   const showRemoteVideo = !isAudioCall || remoteHasVideo;
-  const showLocalVideo = !isAudioCall || sharing || localStreamRef.current?.getVideoTracks?.().length > 0;
+  const showLocalVideo = !isAudioCall || sharing;
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const ss = String(seconds % 60).padStart(2, '0');
 
   return <AppShell><div className="page real-call-page">
     <div className="real-call-header">
@@ -543,7 +463,6 @@ export default function CallPage() {
       </div>
     </div>
 
-    {warning && <div className="admin-warning">{warning}</div>}
     {error && <div className="admin-error">{error}</div>}
     {needsMediaPlay && <button className="media-unlock-btn" onClick={enableRemoteMedia}>🔊 Activer le son</button>}
 
@@ -556,15 +475,14 @@ export default function CallPage() {
         <p>{status}</p>
       </div>
       {showLocalVideo && <video ref={localVideo} autoPlay muted playsInline className="local-video" />}
-      <span className="call-timer">{fmtTime(seconds)}</span>
-      <small className="call-debug-state">{networkState} · {debugState}</small>
+      <span className="call-timer">{mm}:{ss}</span>
+      <small className="call-debug-state">{debugState}</small>
     </div>
 
     <div className="real-call-controls">
       <button onClick={toggleMute} className={muted ? 'active-off' : ''}><span>{muted ? '🔇' : '🎙️'}</span>{muted ? 'Réactiver' : 'Micro'}</button>
-      <button onClick={toggleCamera} disabled={isAudioCall || !mediaStartedRef.current} className={cameraOff ? 'active-off' : ''}><span>{cameraOff ? '🚫' : '📹'}</span>{isAudioCall ? 'Audio' : (cameraOff ? 'Activer' : 'Caméra')}</button>
+      <button onClick={toggleCamera} disabled={isAudioCall} className={cameraOff ? 'active-off' : ''}><span>{cameraOff ? '🚫' : '📹'}</span>{isAudioCall ? 'Audio' : (cameraOff ? 'Activer' : 'Caméra')}</button>
       <button onClick={shareScreen} className={sharing ? 'active-share' : ''}><span>🖥️</span>{sharing ? 'Arrêter' : 'Partager'}</button>
-      <button onClick={retryMediaFlow}><span>🔁</span>Relancer le flux</button>
       <button onClick={() => setChatOpen(!chatOpen)}><span>💬</span>Chat</button>
       <button className="hangup" onClick={endCall}><span>☎</span>Quitter</button>
     </div>
