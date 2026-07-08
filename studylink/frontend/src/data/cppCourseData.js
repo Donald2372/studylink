@@ -292,32 +292,76 @@ Niveau: ${module.level}
 Objectif de la lecon: ${kind.goal}
 Projet concret: ${unit.project}
 
-1. Pourquoi cette notion compte
-${unit.concept} n est pas une definition a memoriser: c est une competence de developpeur C++. Elle sert a ecrire du code correct, maintenable, performant et comprehensible par une equipe. En C++, une mauvaise decision sur les types, la memoire, la duree de vie, les copies, les threads ou les allocations peut produire des bugs difficiles, des crashs ou des pertes de performance.
+1. Idee simple avant les mots compliques
+Imaginez que votre programme est une petite usine. Les donnees sont les objets qui circulent dans l usine, les fonctions sont les machines, les types sont les etiquettes qui disent ce qu on a le droit de faire avec chaque objet, et le compilateur est le controleur qui refuse les pieces mal fabriquees.
 
-2. Notion centrale
+La notion du jour est: ${unit.concept}.
+
+Dit simplement: cette notion explique comment organiser une partie de cette usine pour que le programme fasse exactement ce qu on attend, sans casser, sans perdre de donnees et sans devenir impossible a comprendre.
+
+2. Pourquoi on apprend ca
+En C++, l ordinateur vous donne beaucoup de pouvoir. Vous pouvez controler la memoire, choisir des structures rapides, eviter des copies, creer vos propres types et parler presque directement a la machine. Mais ce pouvoir vient avec une responsabilite: si vous dites quelque chose de faux au programme, il peut compiler puis planter plus tard.
+
+Cette lecon vous apprend donc a penser comme ceci:
+- Quelles donnees entrent dans le probleme?
+- Qui possede ces donnees?
+- Combien de temps ces donnees doivent vivre?
+- Quel type rend l erreur impossible ou visible?
+- Comment verifier que le code marche dans les cas faciles et les cas limites?
+
+3. Notion centrale, expliquee doucement
 ${unit.concept}
 
-3. Exemple concret
+Ne lisez pas cette ligne comme une liste abstraite. Lisez-la comme une boite a outils. Chaque mot designe une question pratique. Par exemple, si la notion parle de reference, demandez-vous: "est-ce que je veux copier la valeur ou seulement regarder/modifier l originale ?" Si elle parle de vector, demandez-vous: "est-ce que j ai une liste qui grandit ?" Si elle parle de thread, demandez-vous: "est-ce que deux parties du programme touchent la meme donnee en meme temps ?"
+
+4. Exemple concret a lire ligne par ligne
 ${unit.code}
 
-4. Methode professionnelle
-- Lire le besoin avant d ecrire du code.
-- Choisir les bons types et limiter les etats invalides.
-- Preferer RAII, const, references et objets a duree de vie claire.
-- Compiler avec warnings stricts.
-- Tester les cas normaux, limites et invalides.
-- Mesurer avant d optimiser.
+Comment lire ce code:
+- Reperez les types: ils disent la forme des donnees.
+- Reperez les noms: ils doivent raconter l intention.
+- Reperez ce qui est modifie et ce qui ne doit pas l etre.
+- Reperez la valeur retour: elle dit ce que la fonction promet de produire.
+- Demandez-vous ce qui se passe si l entree est vide, trop grande, invalide ou inattendue.
 
-5. Erreurs frequentes
+5. Explication comme a un debutant
+Pour ${unit.project}, ne commencez pas par taper du code au hasard. Commencez par raconter le probleme en francais simple. Ensuite transformez chaque morceau du probleme en morceau de programme.
+
+Exemple de raisonnement:
+- "J ai besoin de stocker plusieurs elements" peut devenir std::vector.
+- "Je ne veux pas modifier cette valeur" peut devenir const.
+- "Je veux eviter une copie" peut devenir const reference.
+- "Je veux garantir qu une ressource est liberee" peut devenir RAII.
+- "Je veux choisir entre plusieurs comportements" peut devenir une fonction, une classe ou du polymorphisme selon le niveau du probleme.
+
+6. Methode professionnelle
+La bonne methode est toujours la meme:
+1. Lire le besoin.
+2. Ecrire un exemple minuscule.
+3. Compiler vite.
+4. Corriger les warnings.
+5. Ajouter un cas limite.
+6. Nettoyer le nom des variables et fonctions.
+7. Expliquer votre choix a voix haute.
+
+7. Erreurs frequentes
 - Copier du code sans comprendre la duree de vie des objets.
 - Utiliser des pointeurs nus quand un objet ou un smart pointer suffit.
 - Choisir une structure de donnees sans analyser la complexite.
 - Confondre code qui compile et code correct.
 - Optimiser sans profilage.
 
-6. Tache d application
-Construisez une petite fonctionnalite liee au projet: ${unit.project}. Votre solution doit etre lisible, testable, commentee seulement si necessaire, et accompagnee d un exemple d execution.`;
+8. Tache d application guidee
+Construisez une petite fonctionnalite liee au projet: ${unit.project}.
+
+Etapes:
+- Ecrivez d abord une version tres simple qui compile.
+- Ajoutez un exemple d entree et de sortie.
+- Ajoutez un cas limite.
+- Expliquez pourquoi vos types sont adaptes.
+- Ameliorez le code sans changer son comportement.
+
+A la fin, vous devez pouvoir expliquer la lecon sans reciter: "J ai choisi cette structure parce que..., j ai evite ce risque parce que..., j ai teste ces cas parce que...".`;
 }
 
 function buildExercises(module, unit) {
@@ -432,15 +476,17 @@ function makeLessons(module, moduleIndex, unit, unitIndex) {
         { label: 'Niveau', value: module.level },
       ],
       detailed_sections: [
-        { title: '1. Situation de developpement', body: `Vous devez resoudre un besoin concret: ${unit.project}. La notion ${unit.concept} determine la qualite de la solution.` },
-        { title: '2. Modele mental C++', body: 'En C++, il faut penser types, duree de vie, ownership, erreurs, cout des copies, allocations, complexite et lisibilite.' },
-        { title: '3. Implementation concrete', body: `Point de depart:\n${unit.code}` },
-        { title: '4. Passage au niveau professionnel', body: 'Une solution professionnelle se compile avec warnings stricts, possede des tests, documente ses limites et evite les comportements indefinis.' },
+        { title: '1. Le probleme raconte simplement', body: `Vous voulez construire ceci: ${unit.project}. Avant de coder, imaginez l utilisateur, les donnees qui arrivent, le resultat attendu et les erreurs possibles. Le C++ sert ici a transformer cette histoire en instructions tres precises.` },
+        { title: '2. L image mentale', body: `Pensez a ${unit.concept} comme a une regle de rangement. Si les donnees sont rangees au bon endroit, avec le bon proprietaire et la bonne duree de vie, le programme devient beaucoup plus facile a comprendre.` },
+        { title: '3. Le piege du debutant', body: 'Un debutant regarde seulement si le code compile. Un developpeur C++ regarde aussi: qui possede la memoire, qui peut modifier la donnee, combien coute une copie, que se passe-t-il si l entree est vide, et comment le bug sera detecte.' },
+        { title: '4. Lecture guidee du code', body: `Point de depart:\n${unit.code}\n\nLisez le code en trois passages: d abord les types, ensuite les noms, enfin les valeurs qui entrent et sortent. Cette methode evite de se noyer dans la syntaxe.` },
+        { title: '5. Passage au niveau professionnel', body: 'Une solution professionnelle n est pas seulement une solution qui marche une fois. Elle compile avec warnings stricts, se teste facilement, limite les etats impossibles, documente ses limites et reste lisible pour une autre personne.' },
       ],
       examples: [
-        { title: 'Code minimal', text: unit.code },
-        { title: 'Cas reel', text: unit.project },
-        { title: 'Decision technique', text: `Choisir une approche qui rend ${unit.concept} clair, testable et maintenable.` },
+        { title: 'Code minimal a observer', text: unit.code },
+        { title: 'Cas reel a construire', text: unit.project },
+        { title: 'Explication en mots simples', text: `Je dois utiliser ${unit.concept} pour que mon code soit clair, previsible et facile a corriger.` },
+        { title: 'Question de comprehension', text: 'Si je change une entree, une taille, une valeur nulle ou une erreur de fichier, est-ce que mon code reste correct ?' },
       ],
       use_cases: [
         { title: 'Application console', text: 'Transformer la notion en fonctionnalite executable.' },
@@ -448,11 +494,11 @@ function makeLessons(module, moduleIndex, unit, unitIndex) {
         { title: 'Production', text: 'Verifier performance, erreurs, logs et maintenance.' },
       ],
       grammar_cards: [
-        { title: 'Syntaxe / forme', formula: unit.concept, example: unit.code, note: 'La syntaxe n est utile que si elle protege une intention claire.' },
-        { title: 'Invariant', formula: 'types + conditions + tests', example: unit.project, note: 'Un invariant reduit les bugs possibles.' },
-        { title: 'Qualite', formula: 'warnings + tests + RAII + mesure', example: 'Compiler, tester, profiler, refactorer.', note: 'C est le passage du code amateur au code professionnel.' },
+        { title: 'Idee a retenir', formula: unit.concept, example: unit.code, note: 'Ne commencez pas par memoriser la syntaxe. Commencez par comprendre le probleme que cette notion resout.' },
+        { title: 'Invariant', formula: 'types + conditions + tests', example: unit.project, note: 'Un invariant est une regle qui doit toujours rester vraie. Plus vos invariants sont clairs, moins les bugs peuvent se cacher.' },
+        { title: 'Qualite', formula: 'warnings + tests + RAII + mesure', example: 'Compiler, tester, profiler, refactorer.', note: 'Le niveau professionnel arrive quand vous savez prouver que votre code est correct, pas seulement esperer qu il l est.' },
       ],
-      vocabulary_focus: unit.vocabulary.map((word) => ({ word, meaning: `Terme essentiel pour ${unit.title}.`, example: `Utilisez ${word} dans le projet: ${unit.project}`, collocation: `${word} en C++ moderne` })),
+      vocabulary_focus: unit.vocabulary.map((word) => ({ word, meaning: `Mot technique a comprendre dans ${unit.title}. Demandez toujours: a quel probleme concret ce mot repond-il ?`, example: `Dans le projet "${unit.project}", le mot "${word}" aide a nommer une decision de code.`, collocation: `${word} en C++ moderne` })),
       dialogues: [
         { title: 'Revue de code', lines: ['Reviewer: Pourquoi ce choix?', `Dev: Parce que ${unit.concept} rend la solution plus robuste.`, 'Reviewer: Quels tests couvrent les limites?', 'Dev: Cas normal, cas vide, erreur et regression.'] },
       ],
@@ -463,9 +509,9 @@ function makeLessons(module, moduleIndex, unit, unitIndex) {
         correction: 'La correction attend une solution compileable, lisible, avec types clairs, cas limites et justification.',
       },
       oral_practice: {
-        prompt: `Expliquez en 90 secondes la notion suivante: ${unit.concept}.`,
-        checklist: ['Definition', 'Exemple de code', 'Erreur frequente', 'Cas reel', 'Trade-off'],
-        modelAnswer: `Cette notion sert a ${unit.project}. Je l appliquerais avec des types clairs, RAII, tests et une verification des cas limites.`,
+        prompt: `Expliquez en 90 secondes la notion suivante comme a un debutant: ${unit.concept}.`,
+        checklist: ['Image simple', 'Probleme resolu', 'Exemple de code', 'Erreur frequente', 'Test a faire'],
+        modelAnswer: `Cette notion aide a realiser "${unit.project}". Je commencerais par expliquer le probleme avec des mots simples, puis je montrerais le code, puis je dirais quel bug cette notion permet d eviter.`,
       },
       resources: [
         resource('cppreference', 'https://en.cppreference.com/w/', 'Reference'),
@@ -480,7 +526,7 @@ function makeLessons(module, moduleIndex, unit, unitIndex) {
       audio_script: `C++: ${unit.title}. Notion: ${unit.concept}. Projet: ${unit.project}. Exemple: ${unit.code}`,
       quiz: buildQuiz(unit),
       annotations: [`Module: ${module.title}`, `Niveau: ${module.level}`, `Focus: ${module.focus}`, `Projet: ${unit.project}`],
-      study_method: ['Lire la notion et le code.', 'Compiler un exemple minimal.', 'Modifier une variable ou un type.', 'Ajouter un test de cas limite.', 'Expliquer le choix technique en une minute.'],
+      study_method: ['Lire l image mentale avant la syntaxe.', 'Compiler un exemple minimal.', 'Changer une seule chose et observer le resultat.', 'Ajouter un cas limite.', 'Expliquer le choix technique avec des mots simples.'],
       is_preview: moduleIndex === 0 && unitIndex === 0 && kindIndex === 0,
     };
   });

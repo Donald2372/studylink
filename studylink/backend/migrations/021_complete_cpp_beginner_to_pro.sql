@@ -71,25 +71,34 @@ BEGIN
     FOR v_unit IN SELECT * FROM jsonb_array_elements(v_module_data->'units') LOOP
       v_unit_index := v_unit_index + 1;
       v_video_id := (v_module_data->'videos'->>(v_unit_index - 1));
-      v_base_content := 'OBJECTIFS' || chr(10) ||
-        '- Comprendre la notion: ' || (v_unit->>'concept') || chr(10) ||
-        '- Realiser le projet: ' || (v_unit->>'project') || chr(10) ||
-        '- Utiliser le vocabulaire technique: ' || (v_unit->>'vocab') || chr(10) || chr(10) ||
-        'EXPLICATION DETAILLEE' || chr(10) ||
-        'Cette lecon part d un besoin concret de developpement. Vous devez identifier le probleme, choisir les types, raisonner sur la duree de vie des objets, compiler avec des warnings stricts, tester les cas limites et expliquer le compromis technique.' || chr(10) || chr(10) ||
-        'OBJETS DU COURS' || chr(10) ||
-        'Notion: ' || (v_unit->>'concept') || chr(10) ||
-        'Mini-projet: ' || (v_unit->>'project') || chr(10) ||
-        'Qualite attendue: code compileable, lisible, teste, robuste et justifie.' || chr(10) || chr(10) ||
+      v_base_content := 'COURS EXPLIQUE PAS A PAS' || chr(10) ||
+        'Imaginez que votre programme est une petite usine. Les donnees sont les objets qui circulent, les fonctions sont les machines, les types sont les etiquettes, et le compilateur est le controleur qui refuse les pieces mal formees.' || chr(10) || chr(10) ||
+        'NOTION DU JOUR' || chr(10) ||
+        (v_unit->>'concept') || chr(10) || chr(10) ||
+        'Dit simplement, cette notion sert a organiser le programme pour qu il fasse exactement ce qu on veut, sans casser, sans perdre les donnees et sans devenir impossible a comprendre.' || chr(10) || chr(10) ||
+        'POURQUOI ON APPREND CA' || chr(10) ||
+        'En C++, l ordinateur vous donne beaucoup de controle. Vous pouvez choisir comment les donnees vivent, comment elles sont copiees, comment elles sont stockees et comment elles sont partagees. Mais si vous choisissez mal, le programme peut compiler puis planter plus tard. Cette lecon apprend donc a poser les bonnes questions: qui possede la donnee, combien de temps elle vit, qui peut la modifier, quel cas limite peut casser le code, et quel test prouve que la solution est correcte.' || chr(10) || chr(10) ||
+        'PROJET CONCRET' || chr(10) ||
+        (v_unit->>'project') || chr(10) || chr(10) ||
+        'COMMENT RAISONNER AVANT DE CODER' || chr(10) ||
+        '1. Racontez le besoin en francais simple.' || chr(10) ||
+        '2. Reperez les donnees qui entrent et sortent.' || chr(10) ||
+        '3. Choisissez les types qui rendent les erreurs visibles.' || chr(10) ||
+        '4. Ecrivez un exemple minuscule qui compile.' || chr(10) ||
+        '5. Ajoutez un cas limite: entree vide, taille zero, valeur invalide, fichier absent ou concurrence selon la lecon.' || chr(10) ||
+        '6. Nettoyez les noms et expliquez votre choix a voix haute.' || chr(10) || chr(10) ||
+        'VOCABULAIRE TECHNIQUE' || chr(10) ||
+        (v_unit->>'vocab') || chr(10) || chr(10) ||
         'EXERCICES PROGRESSIFS' || chr(10) ||
-        '1. Definir la notion en une phrase.' || chr(10) ||
-        '2. Ecrire un exemple minimal qui compile.' || chr(10) ||
-        '3. Ajouter deux cas limites.' || chr(10) ||
-        '4. Corriger une erreur volontaire.' || chr(10) ||
-        '5. Refactorer pour rendre le code plus maintenable.' || chr(10) ||
-        '6. Justifier le choix de structure, d API ou d algorithme.' || chr(10) || chr(10) ||
-        'QUIZ' || chr(10) ||
-        'Question cle: quel risque cette notion evite-t-elle dans un vrai projet C++ ?';
+        '1. Expliquez la notion comme a un debutant total.' || chr(10) ||
+        '2. Ecrivez un exemple minimal qui compile.' || chr(10) ||
+        '3. Lisez le code ligne par ligne: types, noms, entrees, sorties.' || chr(10) ||
+        '4. Ajoutez deux cas limites.' || chr(10) ||
+        '5. Corrigez une erreur volontaire.' || chr(10) ||
+        '6. Refactorez pour rendre le code plus clair.' || chr(10) ||
+        '7. Justifiez votre choix comme en revue de code.' || chr(10) || chr(10) ||
+        'QUESTION DE MAITRISE' || chr(10) ||
+        'Quel bug cette notion permet-elle d eviter dans un vrai projet C++ ? Expliquez avec un exemple simple.';
 
       INSERT INTO public.lessons(module_id,title,slug,lesson_type,content,youtube_url,youtube_video_id,duration_seconds,position,is_preview)
       VALUES(v_module,'C++ - ' || (v_unit->>'title') || ' : video et contexte',lower(regexp_replace('cpp-' || (v_unit->>'title') || '-video','[^a-zA-Z0-9]+','-','g')),'youtube',v_base_content,'https://www.youtube.com/watch?v=' || v_video_id,v_video_id,1800,((v_unit_index - 1) * 4) + 1,v_module_index=1 AND v_unit_index=1)
