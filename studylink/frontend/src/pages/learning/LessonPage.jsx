@@ -14,6 +14,27 @@ function renderContent(content='') {
   return content.split('\n').map((line,index)=> line.trim()?<p key={index}>{line}</p>:<br key={index}/>);
 }
 
+const GERMAN_COURSE_SLUG = 'allemand-fonctionnel-a1-c1';
+const germanSignal = /\b(ich|du|er|sie|wir|ihr|Sie|der|die|das|ein|eine|ist|sind|habe|hat|möchte|kann|können|muss|müssen|weil|dass|wenn|obwohl|würde|sollte|nicht|kein|mit|für|auf|um|und|aber|oder|wie|was|wo|wann|warum|heute|gestern|morgen|bitte|danke)\b/i;
+function extractGermanAudioText(content='') {
+  const lines = content.split('\n').map(x=>x.trim()).filter(Boolean);
+  const picked = lines.filter(line => {
+    if (/^(ALLEMAND FONCTIONNEL|MODULE|LEÇON|OBJECTIF|EXPLICATION|MÉTHODE|À RETENIR|VOCABULAIRE|TECHNIQUE|EXERCICES|MISSION|CRITÈRES|RITUEL|RÉVISION|COMPRÉHENSION|PRODUCTION|ATELIER|QUIZ|AUTO-TEST|POINT DE GRAMMAIRE|TRANSFORMATION|ERREUR|LIVRABLES)/i.test(line)) return false;
+    const cleaned = line.replace(/^[•0-9.\-–—A:B: ]+/, '');
+    return germanSignal.test(cleaned) || /[ÄÖÜäöüß]/.test(cleaned);
+  });
+  return picked.join('. ');
+}
+function downloadLessonSheet(lesson, courseTitle) {
+  const text = `${courseTitle}\n${lesson.module?.title || ''}\n${lesson.title}\n\n${lesson.content || ''}`;
+  const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(lesson.slug || lesson.title || 'lecon-allemand').replace(/[^a-z0-9-_]+/gi,'-')}.txt`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
 export default function LessonPage(){
   const {id}=useParams();
   const {search}=useLocation();
@@ -28,11 +49,14 @@ export default function LessonPage(){
   const [error,setError]=useState('');
   const [exerciseChecks,setExerciseChecks]=useState([false,false,false]);
   const [quizAnswers,setQuizAnswers]=useState(['','','']);
+  const [speechRate,setSpeechRate]=useState(0.9);
+  const [speaking,setSpeaking]=useState(false);
 
   const fallback=courseId===PYTHON_COURSE_SLUG||courseId==='demo-python';
   useEffect(()=>{api.getCourse(courseId).then(setData).catch(e=>{if(fallback)setData(pythonCourseFallback);else setError(e.message)})},[courseId,fallback]);
   useEffect(()=>{if(token&&data)api.getCourseLearning(courseId,token).then(r=>{setLearning(r);const existing=(r.notes||[]).find(n=>String(n.lesson_id)===String(id));setNote(existing?.content||'')}).catch(()=>{})},[courseId,id,token,data]);
-  useEffect(()=>{setExerciseChecks([false,false,false]);setQuizAnswers(['','','']);setTab('Résumé')},[id]);
+  useEffect(()=>{setExerciseChecks([false,false,false]);setQuizAnswers(['','','']);setTab('Résumé');window.speechSynthesis?.cancel();setSpeaking(false)},[id]);
+  useEffect(()=>()=>window.speechSynthesis?.cancel(),[]);
 
   const flat=useMemo(()=>flattenCourseLessons(data||{modules:[]}),[data]);
   const lesson=flat.find(l=>String(l.id)===String(id));
@@ -40,6 +64,21 @@ export default function LessonPage(){
   const progress=learning.progress?.find(p=>String(p.lesson_id)===String(id));
   const done=progress?.status==='completed';
   const overall=learning.enrollment?.progress_percent?Math.round(Number(learning.enrollment.progress_percent)):Math.round((learning.progress||[]).filter(p=>p.status==='completed').length/Math.max(1,flat.length)*100);
+
+  const isGermanCourse=courseId===GERMAN_COURSE_SLUG;
+  function speakGerman(){
+    if(!('speechSynthesis' in window)) { setError('La lecture audio n’est pas disponible dans ce navigateur.'); return; }
+    window.speechSynthesis.cancel();
+    const text=extractGermanAudioText(lesson?.content||'') || lesson?.title || '';
+    const utterance=new SpeechSynthesisUtterance(text);
+    utterance.lang='de-DE'; utterance.rate=Number(speechRate)||0.9; utterance.pitch=1;
+    const voices=window.speechSynthesis.getVoices();
+    const voice=voices.find(v=>v.lang?.toLowerCase().startsWith('de'));
+    if(voice) utterance.voice=voice;
+    utterance.onend=()=>setSpeaking(false); utterance.onerror=()=>setSpeaking(false);
+    setSpeaking(true); window.speechSynthesis.speak(utterance);
+  }
+  function stopGerman(){ window.speechSynthesis?.cancel(); setSpeaking(false); }
 
   async function complete(){
     if(!token)return navigate('/login');
@@ -57,6 +96,17 @@ export default function LessonPage(){
   return <AppShell><div className="page lesson-page"><PageHeader title="Leçon" back/>
     {error&&<div className="admin-error">{error}</div>}
     <div className="lesson-topbar"><div><p className="breadcrumb">Mes cours › {data.course.title} › {lesson.module.title}</p><h1>{lesson.title}</h1><p>{lesson.module.title} · {Math.max(1,Math.round((Number(lesson.duration_seconds)||0)/60))} min · {data.course.level==='beginner'?'Débutant':data.course.level}</p></div><div className="lesson-overall-progress"><span>{overall}% du cours</span><Progress value={overall}/></div></div>
+
+    {isGermanCourse&&<div className="german-learning-tools">
+      <div className="german-tool-main"><span className="german-tool-icon">🔊</span><div><b>Audio allemand de la leçon</b><small>Écoutez, répétez puis faites du shadowing.</small></div></div>
+      <div className="german-tool-actions">
+        <label>Vitesse <select value={speechRate} onChange={e=>setSpeechRate(e.target.value)}><option value="0.7">0,7× lent</option><option value="0.9">0,9× apprentissage</option><option value="1">1× normal</option><option value="1.15">1,15× rapide</option></select></label>
+        <button className="primary-btn" onClick={speakGerman}>{speaking?'↻ Recommencer':'▶ Écouter l’allemand'}</button>
+        {speaking&&<button className="outline-btn" onClick={stopGerman}>■ Arrêter</button>}
+        <button className="outline-btn" onClick={()=>downloadLessonSheet(lesson,data.course.title)}>⇩ Télécharger la fiche</button>
+        <button className="outline-btn" onClick={()=>window.print()}>⎙ Imprimer / PDF</button>
+      </div>
+    </div>}
 
     {lesson.lesson_type==='youtube'&&<YouTubeEmbed id={lesson.youtube_video_id} title={lesson.title}/>} 
     {lesson.lesson_type==='video_upload'&&lesson.media_url&&<video src={lesson.media_url} controls className="uploaded-video"/>}
