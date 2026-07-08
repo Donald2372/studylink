@@ -89,45 +89,179 @@ function buildInteractiveExercises({ level, cleanTitle, situation, grammar, voca
   const unit = getUnitProfile(cleanTitle);
   const skill = getLevelProfile(level);
   const words = vocabulary.length ? vocabulary : ['communication', 'question', 'answer', 'context'];
+  const usefulWords = [...words, 'question', 'answer', 'example', 'reason', 'context', 'detail'].filter(Boolean);
+  const targetOutput = skill.output;
   return [
     {
       id: 'fill',
       type: 'fill',
-      title: 'Completer les phrases',
-      instruction: `Completez avec le vocabulaire de la lecon: ${words.slice(0, 5).join(', ')}.`,
+      title: '1. Completer les phrases cles',
+      instruction: `Niveau facile. Completez avec le vocabulaire de la lecon: ${usefulWords.slice(0, 8).join(', ')}.`,
       items: [
         { prompt: unit.samples[0].replace(words[0] || 'English', '_____'), answer: words[0] || 'English' },
         { prompt: `In this situation, I speak with a ${unit.roles[1]} and ask one clear _____.`, answer: 'question' },
         { prompt: `For ${unit.context}, I should use _____ language.`, answer: level === 'C1' ? 'precise' : 'clear' },
+        { prompt: `A good answer includes one reason and one _____.`, answer: 'example' },
+        { prompt: `Before speaking, I identify the role, the goal and the _____.`, answer: 'context' },
       ],
     },
     {
       id: 'choice',
       type: 'choice',
-      title: 'Choisir la meilleure phrase',
-      instruction: `Choisissez la phrase qui correspond le mieux a la situation: ${situation}`,
+      title: '2. Choisir la phrase la plus naturelle',
+      instruction: `Niveau facile. Choisissez la phrase qui correspond le mieux a la situation: ${situation}`,
       items: [
         { prompt: 'Phrase naturelle', options: [unit.samples[0], `I clear ${cleanTitle} explain.`, `${cleanTitle} me speak good.`], answer: unit.samples[0] },
         { prompt: `Strategie ${level}`, options: [skill.strategy, 'Traduire chaque mot avant de parler', 'Parler vite sans structure'], answer: skill.strategy },
+        { prompt: 'Reponse avec relance', options: [unit.samples.find((sample) => sample.includes('?')) || unit.samples[3], 'Yes good.', 'I am English lesson.'], answer: unit.samples.find((sample) => sample.includes('?')) || unit.samples[3] },
+        { prompt: 'Meilleure attitude communicative', options: ['Donner une phrase, un exemple et une question', 'Reciter une liste de mots sans contexte', 'Eviter de parler pour ne pas faire d erreur'], answer: 'Donner une phrase, un exemple et une question' },
+      ],
+    },
+    {
+      id: 'vocabulary-use',
+      type: 'vocabulary-use',
+      title: '3. Employer le vocabulaire en contexte',
+      instruction: 'Niveau facile vers moyen. Ecrivez une phrase utile avec chaque mot, liee a la situation de la lecon.',
+      items: usefulWords.slice(0, 8).map((word) => ({
+        prompt: `Utilisez "${word}" dans une phrase anglaise concrete.`,
+        model: `I can use "${word}" when I speak about ${unit.context}.`,
+      })),
+    },
+    {
+      id: 'grammar-drill',
+      type: 'grammar-drill',
+      title: '4. Automatiser la grammaire',
+      instruction: `Niveau moyen. Produisez des phrases differentes avec la structure: ${grammar}.`,
+      items: [
+        { prompt: `Phrase affirmative avec ${unit.roles[0]}.`, model: unit.samples[0] },
+        { prompt: `Phrase negative ou limite dans le contexte: ${unit.context}.`, model: level === 'A1' ? 'I am not from this city.' : 'This option does not fully solve the problem.' },
+        { prompt: 'Question directe pour continuer la conversation.', model: unit.samples.find((sample) => sample.includes('?')) || 'Could you give me an example?' },
+        { prompt: 'Phrase avec une raison.', model: `${unit.samples[2]} because it helps me communicate clearly.` },
+        { prompt: 'Phrase avec un detail de temps, lieu ou frequence.', model: level === 'A1' ? 'I study English every evening.' : 'In this context, the decision should be reviewed before Friday.' },
       ],
     },
     {
       id: 'transform',
       type: 'transform',
-      title: 'Transformer',
-      instruction: 'Reformulez chaque phrase pour parler de votre propre vie.',
+      title: '5. Transformer sans copier',
+      instruction: 'Niveau moyen. Reformulez chaque phrase pour parler de votre propre vie ou de votre propre situation.',
       items: [
         { prompt: `Model: ${unit.samples[0]}`, model: `${unit.samples[0]} For me, this is useful because I want to ${skill.target}.` },
         { prompt: `Model: ${unit.samples[1]}`, model: `I can adapt this sentence when I speak with a ${unit.roles[1]}.` },
+        { prompt: `Model: ${unit.samples[2]}`, model: 'Personally, I would adapt this sentence with a concrete example from my life.' },
+        { prompt: `Model: ${unit.samples[3]}`, model: 'I would finish with a natural follow-up question to keep the exchange alive.' },
       ],
+    },
+    {
+      id: 'correction',
+      type: 'correction',
+      title: '6. Corriger les erreurs frequentes',
+      instruction: 'Niveau moyen. Corrigez les phrases. Pensez a l ordre des mots, au verbe, au temps et a la politesse.',
+      items: [
+        { prompt: `I ${cleanTitle} very good explain.`, model: `I can explain ${cleanTitle.toLowerCase()} clearly.` },
+        { prompt: 'She not use the grammar correctly.', model: 'She does not use the grammar correctly.' },
+        { prompt: 'Can you to repeat the question?', model: 'Can you repeat the question?' },
+        { prompt: 'I am agree because this idea is good.', model: 'I agree because this idea is good.' },
+        { prompt: 'Yesterday I go in the city.', model: 'Yesterday I went to the city.' },
+      ],
+    },
+    {
+      id: 'translation',
+      type: 'translation',
+      title: '7. Traduire l idee, pas mot a mot',
+      instruction: 'Niveau moyen. Traduisez en anglais naturel. Cherchez une phrase claire avant une phrase compliquee.',
+      items: [
+        { prompt: 'Je dois parler clairement dans cette situation.', model: 'I need to speak clearly in this situation.' },
+        { prompt: 'Pouvez-vous me donner un exemple ?', model: 'Could you give me an example?' },
+        { prompt: 'A mon avis, cette option est plus utile.', model: 'In my opinion, this option is more useful.' },
+        { prompt: 'Je voudrais expliquer mon idee avec une raison.', model: 'I would like to explain my idea with a reason.' },
+        { prompt: 'Le point important est de repondre naturellement.', model: 'The important point is to answer naturally.' },
+      ],
+    },
+    {
+      id: 'scenario',
+      type: 'scenario',
+      title: '8. Reagir a des cas concrets',
+      instruction: 'Niveau moyen vers difficile. Pour chaque cas, ecrivez ce que vous diriez vraiment en anglais.',
+      items: unit.cases.map(([title, text]) => ({
+        prompt: `${title}: ${text}`,
+        model: `In this case, I would say: "${unit.samples[0]}" Then I would add one reason and ask a follow-up question.`,
+      })),
+    },
+    {
+      id: 'dialogue-build',
+      type: 'dialogue-build',
+      title: '9. Construire un dialogue complet',
+      instruction: 'Niveau difficile. Completez chaque partie du dialogue avec une phrase naturelle.',
+      items: [
+        { prompt: `${unit.roles[0]} ouvre la conversation.`, model: `A: ${unit.samples[0]}` },
+        { prompt: `${unit.roles[1]} repond et ajoute un detail.`, model: `B: ${unit.samples[1]}` },
+        { prompt: `${unit.roles[0]} explique une raison.`, model: `A: ${unit.samples[2]} because it is important for me.` },
+        { prompt: `${unit.roles[1]} pose une question de relance.`, model: `B: ${unit.samples.find((sample) => sample.includes('?')) || unit.samples[3]}` },
+      ],
+    },
+    {
+      id: 'listening-note',
+      type: 'listening-note',
+      title: '10. Preparation ecoute et prise de notes',
+      instruction: 'Niveau difficile. Avant de regarder la video ou ecouter l audio, preparez ce que vous devez reperer.',
+      items: [
+        { prompt: 'Notez trois mots que vous voulez entendre dans la video.', model: usefulWords.slice(0, 3).join(', ') },
+        { prompt: 'Notez une question que le locuteur pourrait poser.', model: unit.samples.find((sample) => sample.includes('?')) || 'Could you explain that?' },
+        { prompt: 'Notez une expression utile a reutiliser a l oral.', model: unit.samples[0] },
+        { prompt: 'Apres ecoute, resumez le message en une phrase anglaise.', model: `The speaker explains how to handle ${unit.context}.` },
+      ],
+    },
+    {
+      id: 'reflection',
+      type: 'reflection',
+      title: '11. Reflexion linguistique',
+      instruction: 'Niveau difficile. Expliquez pourquoi la langue fonctionne ainsi. Cette partie renforce la maitrise.',
+      items: [
+        { prompt: `Pourquoi la grammaire "${grammar}" est-elle utile ici ?`, model: `It helps me ${skill.target} with a clear structure.` },
+        { prompt: 'Quelle erreur feriez-vous facilement, et comment l eviter ?', model: 'I might translate from French, so I should reuse an English pattern.' },
+        { prompt: 'Quelle phrase pouvez-vous memoriser comme bloc complet ?', model: unit.samples[0] },
+        { prompt: `Comment adapter ce langage au niveau ${level} ?`, model: `I should produce ${targetOutput} and use the strategy: ${skill.strategy}.` },
+      ],
+    },
+    {
+      id: 'roleplay',
+      type: 'roleplay',
+      title: '12. Jeu de role oral',
+      instruction: `Niveau difficile. Jouez ${unit.roles[0]} face a ${unit.roles[1]}. Ecrivez votre script avant de le dire a voix haute.`,
+      minLength: 80,
+      checklist: [`Role A: ${unit.roles[0]}`, `Role B: ${unit.roles[1]}`, `Contexte: ${unit.context}`, `Objectif: ${skill.target}`, 'Une question de relance'],
+      model: `A: ${unit.samples[0]}\nB: ${unit.samples[1]}\nA: ${unit.samples[2]} because I want to ${skill.target}.\nB: ${unit.samples[3]}`,
     },
     {
       id: 'production',
       type: 'production',
-      title: 'Production guidee',
-      instruction: `Ecrivez un mini-dialogue de 4 lignes pour: ${situation}`,
-      checklist: [`Utiliser: ${grammar}`, `Utiliser au moins 4 mots: ${words.slice(0, 4).join(', ')}`, 'Terminer par une question naturelle'],
-      model: `A (${unit.roles[0]}): ${unit.samples[0]}\nB (${unit.roles[1]}): ${unit.samples[1]}\nA: ${unit.samples[2]}\nB: ${unit.samples[3]}`,
+      title: '13. Production guidee',
+      instruction: `Niveau difficile. Ecrivez un mini-dialogue structure pour: ${situation}`,
+      minLength: 100,
+      checklist: [`Utiliser: ${grammar}`, `Utiliser au moins 6 mots: ${usefulWords.slice(0, 6).join(', ')}`, 'Ajouter une raison', 'Terminer par une question naturelle'],
+      model: `A (${unit.roles[0]}): ${unit.samples[0]}\nB (${unit.roles[1]}): ${unit.samples[1]}\nA: ${unit.samples[2]} because it helps me communicate better.\nB: ${unit.samples[3]}`,
+    },
+    {
+      id: 'challenge',
+      type: 'challenge',
+      title: '14. Defi de maitrise',
+      instruction: `Niveau tres difficile. Produisez ${targetOutput}. Vous devez prouver que vous savez utiliser la lecon sans modele.`,
+      minLength: level === 'A1' ? 90 : level === 'A2' ? 120 : 180,
+      checklist: ['Introduction claire', 'Grammaire cible', 'Vocabulaire varie', 'Exemple concret', 'Auto-correction finale'],
+      model: `I will speak about ${unit.context}. First, I will introduce the situation. Then I will use the target grammar: ${grammar}. I will add examples, explain my reason and finish with a useful question.`,
+    },
+    {
+      id: 'mastery',
+      type: 'mastery',
+      title: '15. Bilan personnel avant validation',
+      instruction: 'Derniere etape. Repondez avec precision: qu avez-vous vraiment maitrise, et que devez-vous encore revoir ?',
+      items: [
+        { prompt: 'Je peux maintenant utiliser cette lecon pour...', model: `I can use this lesson to ${skill.target}.` },
+        { prompt: 'Ma phrase anglaise la plus solide est...', model: unit.samples[0] },
+        { prompt: 'Mon point faible actuel est...', model: `I still need to practise ${grammar}.` },
+        { prompt: 'Mon prochain entrainement oral sera...', model: `I will record myself for one minute about ${unit.context}.` },
+      ],
     },
   ];
 }
@@ -403,22 +537,29 @@ function InteractiveExercises({ lesson, complete, done }) {
   const [answers, setAnswers] = useState({});
   const [revealed, setRevealed] = useState({});
   const exercises = lesson.interactive_exercises || [];
-  const completed = exercises.length && exercises.every((exercise) => {
+  const writtenExerciseTypes = ['transform', 'vocabulary-use', 'grammar-drill', 'correction', 'translation', 'scenario', 'dialogue-build', 'listening-note', 'reflection', 'mastery'];
+  const longProductionTypes = ['roleplay', 'production', 'challenge'];
+  const isExerciseComplete = (exercise) => {
     if (exercise.type === 'fill') return exercise.items.every((_, index) => (answers[`${exercise.id}-${index}`] || '').trim());
     if (exercise.type === 'choice') return exercise.items.every((_, index) => answers[`${exercise.id}-${index}`]);
-    if (exercise.type === 'transform') return exercise.items.every((_, index) => (answers[`${exercise.id}-${index}`] || '').trim().length > 8);
-    if (exercise.type === 'production') return (answers[exercise.id] || '').trim().length > 30;
+    if (writtenExerciseTypes.includes(exercise.type)) return exercise.items.every((_, index) => (answers[`${exercise.id}-${index}`] || '').trim().length >= 8);
+    if (longProductionTypes.includes(exercise.type)) return (answers[exercise.id] || '').trim().length >= (exercise.minLength || 60);
     return false;
+  };
+  const completed = exercises.length && exercises.every((exercise) => {
+    return isExerciseComplete(exercise);
   });
+  const doneCount = exercises.filter(isExerciseComplete).length;
   return <div className="course-panel lesson-exercise-panel rich-exercise-panel">
     <div className="lesson-panel-head"><span>Atelier</span><h2>Exercices interactifs</h2></div>
+    <div className="exercise-volume-banner"><b>{doneCount}/{exercises.length} blocs completes</b><p>Progression du plus simple au plus exigeant: vocabulaire, grammaire, correction, traduction, situations, oral et production finale.</p></div>
     <div className="interactive-exercise-list">
       {exercises.map((exercise) => <article key={exercise.id} className={`interactive-exercise-card ${exercise.type}`}>
-        <div className="exercise-card-head"><div><span>{exercise.type}</span><h3>{exercise.title}</h3><p>{exercise.instruction}</p></div><button type="button" onClick={() => setRevealed((state) => ({ ...state, [exercise.id]: !state[exercise.id] }))}>{revealed[exercise.id] ? 'Masquer le modele' : 'Voir le modele'}</button></div>
+        <div className="exercise-card-head"><div><span>{isExerciseComplete(exercise) ? 'complete' : exercise.type}</span><h3>{exercise.title}</h3><p>{exercise.instruction}</p></div><button type="button" onClick={() => setRevealed((state) => ({ ...state, [exercise.id]: !state[exercise.id] }))}>{revealed[exercise.id] ? 'Masquer le modele' : 'Voir le modele'}</button></div>
         {exercise.type === 'fill' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><input value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder="Votre reponse" />{revealed[exercise.id] && <small>Reponse possible : {item.answer}</small>}</label>)}</div>}
         {exercise.type === 'choice' && <div className="choice-exercise-list">{exercise.items.map((item, index) => <div key={item.prompt}><b>{item.prompt}</b>{item.options.map((option) => <button type="button" key={option} className={answers[`${exercise.id}-${index}`] === option ? 'active' : ''} onClick={() => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: option }))}>{option}</button>)}{revealed[exercise.id] && <small>Bonne reponse : {item.answer}</small>}</div>)}</div>}
-        {exercise.type === 'transform' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><textarea rows="2" value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder="Reformulez avec votre propre exemple" />{revealed[exercise.id] && <small>Modele : {item.model}</small>}</label>)}</div>}
-        {exercise.type === 'production' && <div className="production-exercise"><textarea rows="6" value={answers[exercise.id] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [exercise.id]: event.target.value }))} placeholder="Ecrivez votre mini-dialogue ici..." /><div>{exercise.checklist.map((item) => <span key={item}>{item}</span>)}</div>{revealed[exercise.id] && <pre>{exercise.model}</pre>}</div>}
+        {writtenExerciseTypes.includes(exercise.type) && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><textarea rows={exercise.type === 'scenario' || exercise.type === 'reflection' ? '3' : '2'} value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder="Ecrivez une reponse anglaise complete" />{revealed[exercise.id] && <small>Modele : {item.model}</small>}</label>)}</div>}
+        {longProductionTypes.includes(exercise.type) && <div className="production-exercise"><textarea rows="7" value={answers[exercise.id] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [exercise.id]: event.target.value }))} placeholder="Ecrivez votre reponse complete ici..." /><div>{exercise.checklist.map((item) => <span key={item}>{item}</span>)}</div><small className="exercise-length-hint">{(answers[exercise.id] || '').trim().length}/{exercise.minLength || 60} caracteres minimum</small>{revealed[exercise.id] && <pre>{exercise.model}</pre>}</div>}
       </article>)}
     </div>
     <button className="primary-btn" disabled={!completed} onClick={complete}>{done ? 'Activites validees ✓' : 'Valider tous les exercices'}</button>
