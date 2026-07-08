@@ -295,6 +295,26 @@ Use at least three vocabulary items from this unit in a short conversation of 60
 }
 
 function buildDetailedSections(level, unit, kind) {
+  if (level.cefr !== 'A1') {
+    return [
+      {
+        title: '1. Understand the real situation',
+        body: `The lesson starts from a real communication problem: ${unit.scenario} Before studying the grammar, the learner identifies the speakers, the purpose, the tone and the information that must be exchanged. This turns the lesson into practical communication instead of isolated rules.`,
+      },
+      {
+        title: '2. Observe the model language',
+        body: `The model sentences show natural English patterns. Read them, listen to them, then notice which words can change. For example, "${unit.language[0]}" becomes a reusable frame that the learner can adapt to personal situations.`,
+      },
+      {
+        title: '3. Master the form and the function',
+        body: `The central language point is: ${unit.grammar}. The goal is not only to memorise a rule, but to understand when to use it, which errors to avoid and how to build a message that is accurate, clear and natural.`,
+      },
+      {
+        title: '4. Produce independently',
+        body: `The final step is to speak or write without copying. The learner creates original sentences, uses vocabulary from the unit and checks whether the message is clear. A strong answer is accurate, personal and useful in real life.`,
+      },
+    ];
+  }
   return [
     {
       title: '1. Comprendre la situation',
@@ -361,6 +381,14 @@ function buildLearningObjects(level, unit, kind) {
 }
 
 function buildLessonObjectives(level, unit, kind) {
+  if (level.cefr !== 'A1') {
+    return [
+      `Understand a ${level.cefr} communication situation: ${unit.scenario}`,
+      `Use the target grammar accurately: ${unit.grammar}`,
+      `Use at least six useful words: ${unit.vocabulary.slice(0, 6).join(', ')}`,
+      kind.type === 'audio' ? 'Reproduce rhythm, pauses, stress and pronunciation from the model' : 'Produce personal sentences without translating word for word',
+    ];
+  }
   return [
     `Comprendre une situation de communication ${level.cefr}: ${unit.scenario}`,
     `Utiliser correctement: ${unit.grammar}`,
@@ -387,7 +415,7 @@ function buildVideoRecommendations(level, unit) {
     youtube_url: `https://www.youtube.com/watch?v=${video.id}`,
     thumbnail_url: `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`,
     minutes: video.minutes,
-    description: `Video integree pour renforcer la lecon: ${unit.title}, niveau ${level.cefr}.`,
+    description: level.cefr === 'A1' ? `Video integree pour renforcer la lecon: ${unit.title}, niveau ${level.cefr}.` : `Integrated video practice for this lesson: ${unit.title}, level ${level.cefr}.`,
   }));
 }
 
