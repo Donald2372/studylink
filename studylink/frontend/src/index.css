@@ -278,3 +278,4 @@
 .ambience .ambiance-grid button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,104,255,.10)}
 .ambience .ambiance-grid button.active{border-color:#1768ff;background:#eef5ff;color:#1768ff;box-shadow:0 0 0 2px rgba(23,104,255,.08)}
 @media(max-width:720px){.ambience-status{align-items:flex-start;flex-direction:column}.ambience-status input[type="range"]{width:150px}}
+.admin-warning{background:#fff8e6;color:#8a5a00;border:1px solid #f3d28a;border-radius:14px;padding:14px 16px;margin-bottom:18px;font-weight:700}.real-call-controls button:nth-child(4){background:#eef5ff;color:#155dd7}
