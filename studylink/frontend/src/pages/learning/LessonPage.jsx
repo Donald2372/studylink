@@ -181,6 +181,44 @@ function enrichEnglishLesson(lesson, courseId) {
       { title: 'Au travail', text: `Employer ${grammar} dans un message court, une reunion ou une explication de tache.` },
       { title: 'Dans la vie quotidienne', text: `Reutiliser le vocabulaire (${vocabulary.slice(0, 5).join(', ') || vocabText}) dans une situation naturelle.` },
     ],
+    grammar_cards: lesson.grammar_cards?.length ? lesson.grammar_cards : [
+      { title: 'Forme affirmative', formula: 'Subject + verb / auxiliary + complement', example: `I can explain ${cleanTitle.toLowerCase()} clearly.`, note: `Construisez une phrase courte avant d ajouter des details.` },
+      { title: 'Question', formula: 'Question word + auxiliary + subject + verb?', example: 'What do you need? / Could you repeat that?', note: 'La question sert a garder la conversation vivante.' },
+      { title: 'Reponse complete', formula: 'Answer + reason + follow-up', example: `Yes, I can. I use ${vocabulary[0] || 'this word'} because it fits the situation.`, note: 'Une bonne reponse ne s arrete pas a yes/no.' },
+    ],
+    vocabulary_focus: lesson.vocabulary_focus?.length ? lesson.vocabulary_focus : vocabulary.slice(0, 8).map((word, index) => ({
+      word,
+      meaning: `Mot utile pour parler de ${cleanTitle.toLowerCase()} dans une situation reelle.`,
+      example: `I use "${word}" when I need to explain my idea clearly.`,
+      collocation: index % 2 ? `common ${word}` : `${word} clearly`,
+    })),
+    dialogues: lesson.dialogues?.length ? lesson.dialogues : [
+      {
+        title: 'Dialogue modele',
+        lines: [
+          'A: Hi, can I ask you something?',
+          'B: Sure. What do you need?',
+          `A: I want to talk about ${cleanTitle.toLowerCase()}.`,
+          `B: Start with a simple example and use ${grammar}.`,
+        ],
+      },
+      {
+        title: 'Dialogue a transformer',
+        lines: [
+          'A: Could you help me practise?',
+          'B: Yes. Say one sentence slowly.',
+          `A: I can use ${vocabulary[0] || 'English'} in a real situation.`,
+          'B: Good. Now add one reason.',
+        ],
+      },
+    ],
+    study_method: lesson.study_method?.length ? lesson.study_method : [
+      'Lire le modele une fois pour comprendre le sens general.',
+      'Souligner la structure grammaticale et les mots utiles.',
+      'Ecouter la phrase, puis la repeter lentement trois fois.',
+      'Changer un mot pour creer une phrase personnelle.',
+      'Produire une reponse orale de 45 a 60 secondes.',
+    ],
   };
 }
 
@@ -279,6 +317,18 @@ function LessonRichOverview({ lesson, done }) {
       <div className="lesson-panel-head"><span>Explication</span><h2>Comprendre le cours pas a pas</h2></div>
       <div className="lesson-section-list">{lesson.detailed_sections.map((section) => <article key={section.title}><h3>{section.title}</h3><p><HighlightedText text={section.body} words={highlightWords} /></p></article>)}</div>
     </div>}
+    {lesson.grammar_cards?.length > 0 && <div className="course-panel grammar-masterclass-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Grammaire</span><h2>Le point de grammaire en profondeur</h2></div>
+      <div className="grammar-card-grid">{lesson.grammar_cards.map((card) => <article key={card.title}><span>{card.title}</span><code>{card.formula}</code><p><HighlightedText text={card.example} words={highlightWords} /></p><small>{card.note}</small></article>)}</div>
+    </div>}
+    {lesson.vocabulary_focus?.length > 0 && <div className="course-panel vocabulary-focus-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Vocabulaire</span><h2>Mots importants et exemples naturels</h2></div>
+      <div className="vocabulary-table">{lesson.vocabulary_focus.map((item) => <article key={item.word}><b>{item.word}</b><p>{item.meaning}</p><em>{item.example}</em><small>Collocation : {item.collocation}</small></article>)}</div>
+    </div>}
+    {lesson.dialogues?.length > 0 && <div className="course-panel dialogue-lab-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Dialogues</span><h2>Dialogues concrets a pratiquer</h2></div>
+      <div className="dialogue-grid">{lesson.dialogues.map((dialogue) => <article key={dialogue.title}><h3>{dialogue.title}</h3>{dialogue.lines.map((line) => <p key={line}><HighlightedText text={line} words={highlightWords} /></p>)}<button onClick={() => speak(dialogue.lines.join(' '))}>Ecouter le dialogue</button></article>)}</div>
+    </div>}
     {lesson.examples?.length > 0 && <div className="course-panel lesson-examples-panel">
       <div className="lesson-panel-head"><span>Exemples</span><h2>Exemples concrets et cas d utilisation</h2></div>
       <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>Ecouter</button></article>)}</div>
@@ -286,6 +336,10 @@ function LessonRichOverview({ lesson, done }) {
     {lesson.use_cases?.length > 0 && <div className="course-panel lesson-usecase-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
       <div className="lesson-panel-head"><span>Cas</span><h2>Cas d utilisation</h2></div>
       <div className="lesson-usecase-grid">{lesson.use_cases.map((item) => <article key={item.title}><b>{item.title}</b><p><HighlightedText text={item.text} words={highlightWords} /></p></article>)}</div>
+    </div>}
+    {lesson.study_method?.length > 0 && <div className="course-panel study-method-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Methode</span><h2>Comment apprendre cette lecon efficacement</h2></div>
+      <div className="study-method-steps">{lesson.study_method.map((step, index) => <article key={step}><span>{index + 1}</span><p>{step}</p></article>)}</div>
     </div>}
     <div className="course-panel lesson-copy lesson-reference-copy">
       <h2>Fiche complete</h2>
