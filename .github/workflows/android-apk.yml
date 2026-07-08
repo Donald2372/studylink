@@ -1,0 +1,40 @@
+name: Build StudyLink Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android-apk.yml"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Télécharger le projet
+        uses: actions/checkout@v4
+
+      - name: Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Donner les droits à Gradle
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Compiler l’APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Publier l’APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyLink-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
