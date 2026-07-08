@@ -650,6 +650,59 @@ Write original sentences for your own life, say them aloud, correct the grammar,
   };
 }
 
+function findGermanTemplateLesson(lesson) {
+  const haystack = `${lesson.title || ''} ${lesson.module?.title || ''}`.toLowerCase();
+  const level = haystack.match(/\b(a1|a2|b1|b2|c1)\b/)?.[1]?.toUpperCase();
+  const candidates = germanCourseFallback.modules
+    .filter((module) => !level || module.title.includes(level))
+    .flatMap((module) => module.lessons || []);
+  return candidates.find((candidate) => {
+    const unit = candidate.title.match(/\bA1\s+(.+?):|\bA2\s+(.+?):|\bB1\s+(.+?):|\bB2\s+(.+?):|\bC1\s+(.+?):/)?.slice(1).find(Boolean);
+    return unit && haystack.includes(unit.toLowerCase());
+  }) || candidates[0] || null;
+}
+
+function enrichGermanLesson(lesson) {
+  const template = findGermanTemplateLesson(lesson);
+  if (!template) return { ...lesson, ui_locale: 'de' };
+  const directVideo = lesson.youtube_video_id ? [{
+    id: `${lesson.id}-db-video`,
+    youtube_video_id: lesson.youtube_video_id,
+    title: `${lesson.title} - Video`,
+    channel: 'StudyLink Deutsch',
+    minutes: Math.max(1, Math.round((Number(lesson.duration_seconds) || 600) / 60)),
+    thumbnail_url: `https://img.youtube.com/vi/${lesson.youtube_video_id}/hqdefault.jpg`,
+    description: 'Integrierte Videopraxis fuer diese Deutschlektion.',
+  }] : [];
+  return {
+    ...lesson,
+    content: template.content,
+    ui_locale: 'de',
+    image_url: lesson.image_url || template.image_url,
+    theme: lesson.theme || template.theme,
+    lesson_objectives: template.lesson_objectives,
+    learning_objects: template.learning_objects,
+    detailed_sections: template.detailed_sections,
+    examples: template.examples,
+    use_cases: template.use_cases,
+    grammar_cards: template.grammar_cards,
+    vocabulary_focus: template.vocabulary_focus,
+    dialogues: template.dialogues,
+    common_mistakes: template.common_mistakes,
+    corrected_exercise: template.corrected_exercise,
+    oral_practice: template.oral_practice,
+    resources: template.resources,
+    youtube_videos: [...directVideo, ...(template.youtube_videos || [])].filter((video, index, arr) => video.youtube_video_id && arr.findIndex((item) => item.youtube_video_id === video.youtube_video_id) === index),
+    interactive_exercises: template.interactive_exercises,
+    vocabulary: template.vocabulary,
+    grammar_focus: template.grammar_focus,
+    audio_script: template.audio_script,
+    quiz: template.quiz,
+    annotations: template.annotations,
+    study_method: template.study_method,
+  };
+}
+
 function YouTubeEmbed({ id, title }) {
   if (!id) return null;
   return <div className="lesson-video-frame"><iframe src={`https://www.youtube.com/embed/${id}?rel=0`} title={title || 'Video StudyLink'} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>;
@@ -679,6 +732,7 @@ function speak(text) {
 function LanguageAudioLab({ lesson, transcript, setTranscript }) {
   const [recording, setRecording] = useState(false);
   const en = lesson.ui_full_english;
+  const de = lesson.ui_locale === 'de';
   const recognitionAvailable = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const script = lesson.audio_script || lesson.content || '';
   const oral = lesson.oral_practice;
@@ -698,23 +752,23 @@ function LanguageAudioLab({ lesson, transcript, setTranscript }) {
   }
 
   return <div className="course-panel language-lab">
-    <div className="between"><div><h2>{en ? 'Audio and speaking practice' : 'Audio et entrainement oral'}</h2><p>{en ? 'Listen to the model, repeat it, then record a short answer.' : 'Ecoutez le modele, repetez, puis enregistrez une reponse courte.'}</p></div><button className="primary-btn" onClick={() => speak(script)}>{en ? 'Listen to the model' : 'Ecouter le modele'}</button></div>
+    <div className="between"><div><h2>{de ? 'Audio und Sprechtraining' : en ? 'Audio and speaking practice' : 'Audio et entrainement oral'}</h2><p>{de ? 'Hoeren Sie das Modell, sprechen Sie nach und nehmen Sie dann eine kurze Antwort auf.' : en ? 'Listen to the model, repeat it, then record a short answer.' : 'Ecoutez le modele, repetez, puis enregistrez une reponse courte.'}</p></div><button className="primary-btn" onClick={() => speak(script)}>{de ? 'Modell hoeren' : en ? 'Listen to the model' : 'Ecouter le modele'}</button></div>
     <div className="language-lab-grid">
       <section>
-        <h3>{en ? 'Audio script' : 'Script audio'}</h3>
+        <h3>{de ? 'Audioskript' : en ? 'Audio script' : 'Script audio'}</h3>
         <p>{script}</p>
         <div className="language-chip-row">{(lesson.vocabulary || []).map((word) => <button key={word} onClick={() => speak(word)}>{word}</button>)}</div>
       </section>
       {oral && <section>
-        <h3>{en ? 'Speaking mission' : 'Mission orale'}</h3>
+        <h3>{de ? 'Sprechaufgabe' : en ? 'Speaking mission' : 'Mission orale'}</h3>
         <p>{oral.prompt}</p>
         <ul>{oral.checklist.map((item) => <li key={item}>{item}</li>)}</ul>
         <div className="language-lab-actions">
-          <button className="outline-btn" onClick={() => speak(oral.modelAnswer)}>{en ? 'Listen to a model answer' : 'Ecouter une reponse modele'}</button>
-          <button className="primary-btn" onClick={startRecording} disabled={!recognitionAvailable || recording}>{recording ? (en ? 'Recording...' : 'Enregistrement...') : (en ? 'Speak now' : 'Parler maintenant')}</button>
+          <button className="outline-btn" onClick={() => speak(oral.modelAnswer)}>{de ? 'Modellantwort hoeren' : en ? 'Listen to a model answer' : 'Ecouter une reponse modele'}</button>
+          <button className="primary-btn" onClick={startRecording} disabled={!recognitionAvailable || recording}>{recording ? (de ? 'Aufnahme...' : en ? 'Recording...' : 'Enregistrement...') : (de ? 'Jetzt sprechen' : en ? 'Speak now' : 'Parler maintenant')}</button>
         </div>
-        {!recognitionAvailable && <small>{en ? 'Speech recognition is not available in this browser, but you can practise with the script and the audio model.' : 'La reconnaissance vocale n est pas disponible dans ce navigateur, mais vous pouvez pratiquer avec le script et le modele audio.'}</small>}
-        {transcript && <div className="speech-result"><b>{en ? 'Your transcript' : 'Votre transcription'}</b><p>{transcript}</p></div>}
+        {!recognitionAvailable && <small>{de ? 'Spracherkennung ist in diesem Browser nicht verfuegbar, aber Sie koennen mit Skript und Audiomodell ueben.' : en ? 'Speech recognition is not available in this browser, but you can practise with the script and the audio model.' : 'La reconnaissance vocale n est pas disponible dans ce navigateur, mais vous pouvez pratiquer avec le script et le modele audio.'}</small>}
+        {transcript && <div className="speech-result"><b>{de ? 'Ihre Transkription' : en ? 'Your transcript' : 'Votre transcription'}</b><p>{transcript}</p></div>}
       </section>}
     </div>
   </div>;
@@ -723,9 +777,10 @@ function LanguageAudioLab({ lesson, transcript, setTranscript }) {
 function LessonAnnotations({ lesson }) {
   if (!lesson.annotations?.length && !lesson.grammar_focus) return null;
   const en = lesson.ui_full_english;
+  const de = lesson.ui_locale === 'de';
   return <div className="course-panel language-annotations">
-    <h2>{en ? 'Learning annotations' : 'Annotations pedagogiques'}</h2>
-    {lesson.grammar_focus && <p><b>{en ? 'Grammar focus:' : 'Focus grammaire :'}</b> {lesson.grammar_focus}</p>}
+    <h2>{de ? 'Lernnotizen' : en ? 'Learning annotations' : 'Annotations pedagogiques'}</h2>
+    {lesson.grammar_focus && <p><b>{de ? 'Grammatikfokus:' : en ? 'Grammar focus:' : 'Focus grammaire :'}</b> {lesson.grammar_focus}</p>}
     <div className="annotation-list">{(lesson.annotations || []).map((item) => <span key={item}>{item}</span>)}</div>
   </div>;
 }
@@ -733,52 +788,53 @@ function LessonAnnotations({ lesson }) {
 function LessonRichOverview({ lesson, done }) {
   const theme = lesson.theme || { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' };
   const en = lesson.ui_full_english;
+  const de = lesson.ui_locale === 'de';
   const highlightWords = [lesson.grammar_focus, ...(lesson.vocabulary || [])].filter(Boolean);
   return <>
-    {lesson.image_url && <div className="lesson-visual-card rich" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}><img src={lesson.image_url} alt="" /><div><span>{en ? 'Lesson context' : 'Contexte de la lecon'}</span><b>{lesson.title}</b><p><HighlightedText text={lesson.oral_practice?.prompt || (en ? 'Observe the situation, identify the speakers and prepare useful language.' : 'Observez la situation, identifiez les interlocuteurs et preparez le langage utile.')} words={highlightWords} /></p></div></div>}
+    {lesson.image_url && <div className="lesson-visual-card rich" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}><img src={lesson.image_url} alt="" /><div><span>{de ? 'Lektionskontext' : en ? 'Lesson context' : 'Contexte de la lecon'}</span><b>{lesson.title}</b><p><HighlightedText text={lesson.oral_practice?.prompt || (de ? 'Beobachten Sie die Situation, erkennen Sie die Rollen und bereiten Sie nuetzliche Sprache vor.' : en ? 'Observe the situation, identify the speakers and prepare useful language.' : 'Observez la situation, identifiez les interlocuteurs et preparez le langage utile.')} words={highlightWords} /></p></div></div>}
     {lesson.lesson_objectives?.length > 0 && <div className="course-panel lesson-objectives-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Goals' : 'Objectifs'}</span><h2>{en ? 'What you must be able to do' : 'Ce que vous devez savoir faire'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Ziele' : en ? 'Goals' : 'Objectifs'}</span><h2>{de ? 'Was Sie koennen muessen' : en ? 'What you must be able to do' : 'Ce que vous devez savoir faire'}</h2></div>
       <div className="lesson-objective-list">{lesson.lesson_objectives.map((item, index) => <article key={item}><span>{index + 1}</span><p>{item}</p></article>)}</div>
     </div>}
     {lesson.learning_objects?.length > 0 && <div className="course-panel lesson-object-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Objects' : 'Objets'}</span><h2>{en ? 'Lesson learning objects' : 'Objets du cours'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Objekte' : en ? 'Objects' : 'Objets'}</span><h2>{de ? 'Lernobjekte der Lektion' : en ? 'Lesson learning objects' : 'Objets du cours'}</h2></div>
       <div className="lesson-object-grid">{lesson.learning_objects.map((item) => <article key={item.label}><span>{item.label}</span><b>{item.value}</b></article>)}</div>
     </div>}
     {lesson.detailed_sections?.length > 0 && <div className="course-panel lesson-detail-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Explanation' : 'Explication'}</span><h2>{en ? 'Understand the lesson step by step' : 'Comprendre le cours pas a pas'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Erklaerung' : en ? 'Explanation' : 'Explication'}</span><h2>{de ? 'Die Lektion Schritt fuer Schritt verstehen' : en ? 'Understand the lesson step by step' : 'Comprendre le cours pas a pas'}</h2></div>
       <div className="lesson-section-list">{lesson.detailed_sections.map((section) => <article key={section.title}><h3>{section.title}</h3><p><HighlightedText text={section.body} words={highlightWords} /></p></article>)}</div>
     </div>}
     {lesson.grammar_cards?.length > 0 && <div className="course-panel grammar-masterclass-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Grammar' : 'Grammaire'}</span><h2>{en ? 'Deep grammar focus' : 'Le point de grammaire en profondeur'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Grammatik' : en ? 'Grammar' : 'Grammaire'}</span><h2>{de ? 'Grammatik im Detail' : en ? 'Deep grammar focus' : 'Le point de grammaire en profondeur'}</h2></div>
       <div className="grammar-card-grid">{lesson.grammar_cards.map((card) => <article key={card.title}><span>{card.title}</span><code>{card.formula}</code><p><HighlightedText text={card.example} words={highlightWords} /></p><small>{card.note}</small></article>)}</div>
     </div>}
     {lesson.vocabulary_focus?.length > 0 && <div className="course-panel vocabulary-focus-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Vocabulary' : 'Vocabulaire'}</span><h2>{en ? 'Important words and natural examples' : 'Mots importants et exemples naturels'}</h2></div>
-      <div className="vocabulary-table">{lesson.vocabulary_focus.map((item) => <article key={item.word}><b>{item.word}</b><p>{item.meaning}</p><em>{item.example}</em><small>{en ? 'Collocation:' : 'Collocation :'} {item.collocation}</small></article>)}</div>
+      <div className="lesson-panel-head"><span>{de ? 'Wortschatz' : en ? 'Vocabulary' : 'Vocabulaire'}</span><h2>{de ? 'Wichtige Woerter und natuerliche Beispiele' : en ? 'Important words and natural examples' : 'Mots importants et exemples naturels'}</h2></div>
+      <div className="vocabulary-table">{lesson.vocabulary_focus.map((item) => <article key={item.word}><b>{item.word}</b><p>{item.meaning}</p><em>{item.example}</em><small>{de ? 'Kollokation:' : en ? 'Collocation:' : 'Collocation :'} {item.collocation}</small></article>)}</div>
     </div>}
     {lesson.dialogues?.length > 0 && <div className="course-panel dialogue-lab-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>Dialogues</span><h2>{en ? 'Concrete dialogues to practise' : 'Dialogues concrets a pratiquer'}</h2></div>
-      <div className="dialogue-grid">{lesson.dialogues.map((dialogue) => <article key={dialogue.title}><h3>{dialogue.title}</h3>{dialogue.lines.map((line) => <p key={line}><HighlightedText text={line} words={highlightWords} /></p>)}<button onClick={() => speak(dialogue.lines.join(' '))}>{en ? 'Listen to the dialogue' : 'Ecouter le dialogue'}</button></article>)}</div>
+      <div className="lesson-panel-head"><span>Dialogues</span><h2>{de ? 'Konkrete Dialoge zum Ueben' : en ? 'Concrete dialogues to practise' : 'Dialogues concrets a pratiquer'}</h2></div>
+      <div className="dialogue-grid">{lesson.dialogues.map((dialogue) => <article key={dialogue.title}><h3>{dialogue.title}</h3>{dialogue.lines.map((line) => <p key={line}><HighlightedText text={line} words={highlightWords} /></p>)}<button onClick={() => speak(dialogue.lines.join(' '))}>{de ? 'Dialog hoeren' : en ? 'Listen to the dialogue' : 'Ecouter le dialogue'}</button></article>)}</div>
     </div>}
     {lesson.examples?.length > 0 && <div className="course-panel lesson-examples-panel">
-      <div className="lesson-panel-head"><span>{en ? 'Examples' : 'Exemples'}</span><h2>{en ? 'Concrete examples and use cases' : 'Exemples concrets et cas d utilisation'}</h2></div>
-      <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>{en ? 'Listen' : 'Ecouter'}</button></article>)}</div>
+      <div className="lesson-panel-head"><span>{de ? 'Beispiele' : en ? 'Examples' : 'Exemples'}</span><h2>{de ? 'Konkrete Beispiele und Anwendungsfaelle' : en ? 'Concrete examples and use cases' : 'Exemples concrets et cas d utilisation'}</h2></div>
+      <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>{de ? 'Hoeren' : en ? 'Listen' : 'Ecouter'}</button></article>)}</div>
     </div>}
     {lesson.use_cases?.length > 0 && <div className="course-panel lesson-usecase-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Cases' : 'Cas'}</span><h2>{en ? 'Use cases' : 'Cas d utilisation'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Faelle' : en ? 'Cases' : 'Cas'}</span><h2>{de ? 'Anwendungsfaelle' : en ? 'Use cases' : 'Cas d utilisation'}</h2></div>
       <div className="lesson-usecase-grid">{lesson.use_cases.map((item) => <article key={item.title}><b>{item.title}</b><p><HighlightedText text={item.text} words={highlightWords} /></p></article>)}</div>
     </div>}
     {lesson.study_method?.length > 0 && <div className="course-panel study-method-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-      <div className="lesson-panel-head"><span>{en ? 'Method' : 'Methode'}</span><h2>{en ? 'How to study this lesson effectively' : 'Comment apprendre cette lecon efficacement'}</h2></div>
+      <div className="lesson-panel-head"><span>{de ? 'Methode' : en ? 'Method' : 'Methode'}</span><h2>{de ? 'Wie Sie diese Lektion effektiv lernen' : en ? 'How to study this lesson effectively' : 'Comment apprendre cette lecon efficacement'}</h2></div>
       <div className="study-method-steps">{lesson.study_method.map((step, index) => <article key={step}><span>{index + 1}</span><p>{step}</p></article>)}</div>
     </div>}
     <div className="course-panel lesson-copy lesson-reference-copy">
-      <h2>{en ? 'Complete lesson sheet' : 'Fiche complete'}</h2>
-      {renderContent(lesson.content || (en ? 'Additional lesson content will be available soon.' : 'Le contenu complementaire de cette lecon sera bientot disponible.'))}
-      {done && <div className="lesson-success">{en ? '? This lesson is complete and saved in your progress.' : '? Cette lecon est terminee et enregistree dans votre progression.'}</div>}
+      <h2>{de ? 'Vollstaendige Lektionskarte' : en ? 'Complete lesson sheet' : 'Fiche complete'}</h2>
+      {renderContent(lesson.content || (de ? 'Zusaetzlicher Lektionsinhalt wird bald verfuegbar sein.' : en ? 'Additional lesson content will be available soon.' : 'Le contenu complementaire de cette lecon sera bientot disponible.'))}
+      {done && <div className="lesson-success">{de ? '✓ Diese Lektion ist abgeschlossen und gespeichert.' : en ? '✓ This lesson is complete and saved in your progress.' : '✓ Cette lecon est terminee et enregistree dans votre progression.'}</div>}
     </div>
     {lesson.common_mistakes?.length > 0 && <div className="course-panel language-annotations">
-      <h2>{en ? 'Common mistakes' : 'Erreurs frequentes'}</h2>
+      <h2>{de ? 'Haeufige Fehler' : en ? 'Common mistakes' : 'Erreurs frequentes'}</h2>
       <div className="annotation-list">{lesson.common_mistakes.map((item) => <span key={item}>{item}</span>)}</div>
     </div>}
     <LessonAnnotations lesson={lesson} />
@@ -788,13 +844,14 @@ function LessonRichOverview({ lesson, done }) {
 function LessonResources({ lesson }) {
   const theme = lesson.theme || { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' };
   const en = lesson.ui_full_english;
+  const de = lesson.ui_locale === 'de';
   const grouped = lesson.resources || [];
   return <div className="course-panel rich-resource-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
-    <div className="lesson-panel-head"><span>{en ? 'Resources' : 'Ressources'}</span><h2>{en ? 'Lesson resources' : 'Ressources de la lecon'}</h2></div>
+    <div className="lesson-panel-head"><span>{de ? 'Ressourcen' : en ? 'Resources' : 'Ressources'}</span><h2>{de ? 'Ressourcen der Lektion' : en ? 'Lesson resources' : 'Ressources de la lecon'}</h2></div>
     <div className="rich-resource-grid">{grouped.map((resource) => <a key={resource.id || resource.url} href={resource.url} target="_blank" rel="noreferrer">
       <span>{resource.resource_type?.slice(0, 2) || '↗'}</span>
-      <div><b>{resource.title}</b><small>{resource.resource_type || (en ? 'Useful link' : 'Lien utile')}</small><p>{en ? 'Open this resource to deepen the lesson and check examples.' : 'Ouvrir cette ressource pour approfondir la lecon et verifier les exemples.'}</p></div>
-      <strong>{en ? 'Open' : 'Ouvrir'}</strong>
+      <div><b>{resource.title}</b><small>{resource.resource_type || (de ? 'Nuetzlicher Link' : en ? 'Useful link' : 'Lien utile')}</small><p>{de ? 'Diese Ressource oeffnen, um die Lektion zu vertiefen und Beispiele zu pruefen.' : en ? 'Open this resource to deepen the lesson and check examples.' : 'Ouvrir cette ressource pour approfondir la lecon et verifier les exemples.'}</p></div>
+      <strong>{de ? 'Oeffnen' : en ? 'Open' : 'Ouvrir'}</strong>
     </a>)}</div>
   </div>;
 }
@@ -803,6 +860,7 @@ function InteractiveExercises({ lesson, complete, done }) {
   const [answers, setAnswers] = useState({});
   const [revealed, setRevealed] = useState({});
   const en = lesson.ui_full_english;
+  const de = lesson.ui_locale === 'de';
   const exercises = lesson.interactive_exercises || [];
   const writtenExerciseTypes = ['transform', 'vocabulary-use', 'grammar-drill', 'correction', 'translation', 'scenario', 'dialogue-build', 'listening-note', 'reflection', 'mastery'];
   const longProductionTypes = ['roleplay', 'production', 'challenge'];
@@ -818,18 +876,18 @@ function InteractiveExercises({ lesson, complete, done }) {
   });
   const doneCount = exercises.filter(isExerciseComplete).length;
   return <div className="course-panel lesson-exercise-panel rich-exercise-panel">
-    <div className="lesson-panel-head"><span>{en ? 'Workshop' : 'Atelier'}</span><h2>{en ? 'Interactive exercises' : 'Exercices interactifs'}</h2></div>
-    <div className="exercise-volume-banner"><b>{doneCount}/{exercises.length} {en ? 'blocks completed' : 'blocs completes'}</b><p>{en ? 'Progression from simple to demanding: vocabulary, grammar, correction, reformulation, situations, speaking and final production.' : 'Progression du plus simple au plus exigeant: vocabulaire, grammaire, correction, traduction, situations, oral et production finale.'}</p></div>
+    <div className="lesson-panel-head"><span>{de ? 'Training' : en ? 'Workshop' : 'Atelier'}</span><h2>{de ? 'Interaktive Uebungen' : en ? 'Interactive exercises' : 'Exercices interactifs'}</h2></div>
+    <div className="exercise-volume-banner"><b>{doneCount}/{exercises.length} {de ? 'Bloecke abgeschlossen' : en ? 'blocks completed' : 'blocs completes'}</b><p>{de ? 'Progression von einfach bis anspruchsvoll: Wortschatz, Grammatik, Korrektur, Umformulierung, Situationen, Sprechen und finale Produktion.' : en ? 'Progression from simple to demanding: vocabulary, grammar, correction, reformulation, situations, speaking and final production.' : 'Progression du plus simple au plus exigeant: vocabulaire, grammaire, correction, traduction, situations, oral et production finale.'}</p></div>
     <div className="interactive-exercise-list">
       {exercises.map((exercise) => <article key={exercise.id} className={`interactive-exercise-card ${exercise.type}`}>
-        <div className="exercise-card-head"><div><span>{isExerciseComplete(exercise) ? 'complete' : exercise.type}</span><h3>{exercise.title}</h3><p>{exercise.instruction}</p></div><button type="button" onClick={() => setRevealed((state) => ({ ...state, [exercise.id]: !state[exercise.id] }))}>{revealed[exercise.id] ? (en ? 'Hide model' : 'Masquer le modele') : (en ? 'Show model' : 'Voir le modele')}</button></div>
-        {exercise.type === 'fill' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><input value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder={en ? 'Your answer' : 'Votre reponse'} />{revealed[exercise.id] && <small>{en ? 'Possible answer:' : 'Reponse possible :'} {item.answer}</small>}</label>)}</div>}
-        {exercise.type === 'choice' && <div className="choice-exercise-list">{exercise.items.map((item, index) => <div key={item.prompt}><b>{item.prompt}</b>{item.options.map((option) => <button type="button" key={option} className={answers[`${exercise.id}-${index}`] === option ? 'active' : ''} onClick={() => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: option }))}>{option}</button>)}{revealed[exercise.id] && <small>{en ? 'Correct answer:' : 'Bonne reponse :'} {item.answer}</small>}</div>)}</div>}
-        {writtenExerciseTypes.includes(exercise.type) && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><textarea rows={exercise.type === 'scenario' || exercise.type === 'reflection' ? '3' : '2'} value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder={en ? 'Write a complete English answer' : 'Ecrivez une reponse anglaise complete'} />{revealed[exercise.id] && <small>{en ? 'Model:' : 'Modele :'} {item.model}</small>}</label>)}</div>}
-        {longProductionTypes.includes(exercise.type) && <div className="production-exercise"><textarea rows="7" value={answers[exercise.id] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [exercise.id]: event.target.value }))} placeholder={en ? 'Write your complete answer here...' : 'Ecrivez votre reponse complete ici...'} /><div>{exercise.checklist.map((item) => <span key={item}>{item}</span>)}</div><small className="exercise-length-hint">{(answers[exercise.id] || '').trim().length}/{exercise.minLength || 60} {en ? 'minimum characters' : 'caracteres minimum'}</small>{revealed[exercise.id] && <pre>{exercise.model}</pre>}</div>}
+        <div className="exercise-card-head"><div><span>{isExerciseComplete(exercise) ? (de ? 'fertig' : 'complete') : exercise.type}</span><h3>{exercise.title}</h3><p>{exercise.instruction}</p></div><button type="button" onClick={() => setRevealed((state) => ({ ...state, [exercise.id]: !state[exercise.id] }))}>{revealed[exercise.id] ? (de ? 'Modell ausblenden' : en ? 'Hide model' : 'Masquer le modele') : (de ? 'Modell anzeigen' : en ? 'Show model' : 'Voir le modele')}</button></div>
+        {exercise.type === 'fill' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><input value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder={de ? 'Ihre Antwort' : en ? 'Your answer' : 'Votre reponse'} />{revealed[exercise.id] && <small>{de ? 'Moegliche Antwort:' : en ? 'Possible answer:' : 'Reponse possible :'} {item.answer}</small>}</label>)}</div>}
+        {exercise.type === 'choice' && <div className="choice-exercise-list">{exercise.items.map((item, index) => <div key={item.prompt}><b>{item.prompt}</b>{item.options.map((option) => <button type="button" key={option} className={answers[`${exercise.id}-${index}`] === option ? 'active' : ''} onClick={() => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: option }))}>{option}</button>)}{revealed[exercise.id] && <small>{de ? 'Richtige Antwort:' : en ? 'Correct answer:' : 'Bonne reponse :'} {item.answer}</small>}</div>)}</div>}
+        {writtenExerciseTypes.includes(exercise.type) && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><textarea rows={exercise.type === 'scenario' || exercise.type === 'reflection' ? '3' : '2'} value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder={de ? 'Schreiben Sie eine vollstaendige deutsche Antwort' : en ? 'Write a complete English answer' : 'Ecrivez une reponse anglaise complete'} />{revealed[exercise.id] && <small>{de ? 'Modell:' : en ? 'Model:' : 'Modele :'} {item.model}</small>}</label>)}</div>}
+        {longProductionTypes.includes(exercise.type) && <div className="production-exercise"><textarea rows="7" value={answers[exercise.id] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [exercise.id]: event.target.value }))} placeholder={de ? 'Schreiben Sie Ihre vollstaendige Antwort hier...' : en ? 'Write your complete answer here...' : 'Ecrivez votre reponse complete ici...'} /><div>{exercise.checklist.map((item) => <span key={item}>{item}</span>)}</div><small className="exercise-length-hint">{(answers[exercise.id] || '').trim().length}/{exercise.minLength || 60} {de ? 'Mindestzeichen' : en ? 'minimum characters' : 'caracteres minimum'}</small>{revealed[exercise.id] && <pre>{exercise.model}</pre>}</div>}
       </article>)}
     </div>
-    <button className="primary-btn" disabled={!completed} onClick={complete}>{done ? (en ? 'Activities validated ?' : 'Activites validees ?') : (en ? 'Validate all exercises' : 'Valider tous les exercices')}</button>
+    <button className="primary-btn" disabled={!completed} onClick={complete}>{done ? (de ? 'Uebungen validiert ✓' : en ? 'Activities validated ✓' : 'Activites validees ✓') : (de ? 'Alle Uebungen validieren' : en ? 'Validate all exercises' : 'Valider tous les exercices')}</button>
   </div>;
 }
 
@@ -839,7 +897,7 @@ function LessonVideos({ lesson }) {
   useEffect(() => { setActive(videos[0]?.youtube_video_id || ''); }, [lesson.id]);
   const current = videos.find((video) => video.youtube_video_id === active) || videos[0];
   return <div className="course-panel lesson-youtube-panel">
-    <div className="lesson-panel-head"><span>Videos</span><h2>{lesson.ui_full_english ? 'Lesson videos' : 'Videos de la lecon'}</h2></div>
+    <div className="lesson-panel-head"><span>Videos</span><h2>{lesson.ui_locale === 'de' ? 'Videos der Lektion' : lesson.ui_full_english ? 'Lesson videos' : 'Videos de la lecon'}</h2></div>
     {current?.youtube_video_id && <div className="lesson-integrated-video"><iframe src={`https://www.youtube-nocookie.com/embed/${current.youtube_video_id}?rel=0`} title={current.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>}
     <div className="youtube-recommendation-grid embedded">
       {videos.map((video) => <button key={video.id} type="button" className={video.youtube_video_id === current?.youtube_video_id ? 'active' : ''} onClick={() => setActive(video.youtube_video_id)}>
@@ -893,7 +951,9 @@ export default function LessonPage() {
 
   const flat = useMemo(() => flattenCourseLessons(data || { modules: [] }), [data]);
   const rawLesson = flat.find((l) => String(l.id) === String(id));
-  const lesson = rawLesson ? (isGermanCourseId(courseId) ? rawLesson : enrichEnglishLesson(rawLesson, courseId)) : null;
+  const isGermanCourse = isGermanCourseId(courseId) || data?.course?.language === 'de' || /allemand|deutsch|german/i.test(data?.course?.title || '');
+  const isEnglishCourse = isEnglishCourseId(courseId) || data?.course?.language === 'en' || /anglais|english/i.test(data?.course?.title || '');
+  const lesson = rawLesson ? (isGermanCourse ? enrichGermanLesson(rawLesson) : isEnglishCourse ? enrichEnglishLesson(rawLesson, courseId) : rawLesson) : null;
   const index = flat.findIndex((l) => String(l.id) === String(id));
   const progress = learning.progress?.find((p) => String(p.lesson_id) === String(id));
   const done = progress?.status === 'completed';
@@ -920,16 +980,17 @@ export default function LessonPage() {
   const prev = flat[index - 1], next = flat[index + 1];
   const tabs = ['Resume', 'Videos', 'Audio oral', 'Notes', 'Ressources', 'Exercices'].filter((item) => item !== 'Audio oral' || lesson.audio_script || lesson.oral_practice);
   const en = lesson.ui_full_english;
-  const tabLabels = en ? { Resume: 'Summary', Videos: 'Videos', 'Audio oral': 'Speaking lab', Notes: 'Notes', Ressources: 'Resources', Exercices: 'Exercises' } : {};
+  const de = lesson.ui_locale === 'de';
+  const tabLabels = de ? { Resume: 'Zusammenfassung', Videos: 'Videos', 'Audio oral': 'Sprechtraining', Notes: 'Notizen', Ressources: 'Ressourcen', Exercices: 'Uebungen' } : en ? { Resume: 'Summary', Videos: 'Videos', 'Audio oral': 'Speaking lab', Notes: 'Notes', Ressources: 'Resources', Exercices: 'Exercises' } : {};
 
-  return <AppShell><div className="page lesson-page"><PageHeader title={en ? 'Lesson' : 'Lecon'} back />
+  return <AppShell><div className="page lesson-page"><PageHeader title={de ? 'Lektion' : en ? 'Lesson' : 'Lecon'} back />
     {error && <div className="admin-error">{error}</div>}
-    <div className="lesson-topbar"><div><p className="breadcrumb">{en ? 'My courses' : 'Mes cours'} &gt; {data.course.title} &gt; {lesson.module.title}</p><h1>{lesson.title}</h1><p>{lesson.module.title} - {Math.max(1, Math.round((Number(lesson.duration_seconds) || 0) / 60))} min - {data.course.level === 'beginner' ? (en ? 'Beginner' : 'Debutant') : data.course.level}</p></div><div className="lesson-overall-progress"><span>{overall}% {en ? 'of the course' : 'du cours'}</span><Progress value={overall} /></div></div>
+    <div className="lesson-topbar"><div><p className="breadcrumb">{de ? 'Meine Kurse' : en ? 'My courses' : 'Mes cours'} &gt; {data.course.title} &gt; {lesson.module.title}</p><h1>{lesson.title}</h1><p>{lesson.module.title} - {Math.max(1, Math.round((Number(lesson.duration_seconds) || 0) / 60))} min - {data.course.level === 'beginner' ? (de ? 'Anfaenger' : en ? 'Beginner' : 'Debutant') : data.course.level}</p></div><div className="lesson-overall-progress"><span>{overall}% {de ? 'des Kurses' : en ? 'of the course' : 'du cours'}</span><Progress value={overall} /></div></div>
 
     {lesson.lesson_type === 'youtube' && <YouTubeEmbed id={lesson.youtube_video_id} title={lesson.title} />}
     {lesson.lesson_type === 'video_upload' && lesson.media_url && <video src={lesson.media_url} controls className="uploaded-video" />}
-    {lesson.lesson_type === 'pdf' && lesson.media_url && <div className="lesson-file-card"><span>PDF</span><div><b>{lesson.title}</b><p>{en ? 'Lesson document' : 'Document de la lecon'}</p></div><a href={lesson.media_url} target="_blank" rel="noreferrer">{en ? 'Open' : 'Ouvrir'}</a></div>}
-    {['exercise', 'text', 'audio'].includes(lesson.lesson_type) && <div className={`lesson-type-banner ${lesson.lesson_type}`}><span>{lesson.lesson_type === 'exercise' ? '⌘' : lesson.lesson_type === 'audio' ? '♪' : '▤'}</span><div><b>{lesson.lesson_type === 'exercise' ? (en ? 'Practice exercise' : 'Exercice pratique') : lesson.lesson_type === 'audio' ? (en ? 'Audio and pronunciation' : 'Audio et prononciation') : (en ? 'Guided reading' : 'Lecture guidee')}</b><p>{en ? 'Follow the instructions below, then mark the lesson as complete.' : 'Suivez les consignes ci-dessous, puis marquez la lecon comme terminee.'}</p></div></div>}
+    {lesson.lesson_type === 'pdf' && lesson.media_url && <div className="lesson-file-card"><span>PDF</span><div><b>{lesson.title}</b><p>{de ? 'Lektionsdokument' : en ? 'Lesson document' : 'Document de la lecon'}</p></div><a href={lesson.media_url} target="_blank" rel="noreferrer">{de ? 'Oeffnen' : en ? 'Open' : 'Ouvrir'}</a></div>}
+    {['exercise', 'text', 'audio'].includes(lesson.lesson_type) && <div className={`lesson-type-banner ${lesson.lesson_type}`}><span>{lesson.lesson_type === 'exercise' ? '⌘' : lesson.lesson_type === 'audio' ? '♪' : '▤'}</span><div><b>{lesson.lesson_type === 'exercise' ? (de ? 'Praktische Uebung' : en ? 'Practice exercise' : 'Exercice pratique') : lesson.lesson_type === 'audio' ? (de ? 'Audio und Aussprache' : en ? 'Audio and pronunciation' : 'Audio et prononciation') : (de ? 'Gefuehrte Lektuere' : en ? 'Guided reading' : 'Lecture guidee')}</b><p>{de ? 'Folgen Sie den Aufgaben unten und markieren Sie die Lektion danach als abgeschlossen.' : en ? 'Follow the instructions below, then mark the lesson as complete.' : 'Suivez les consignes ci-dessous, puis marquez la lecon comme terminee.'}</p></div></div>}
 
     <nav className="lesson-tabs">{tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={tab === item ? 'active' : ''}>{tabLabels[item] || item}{item === 'Ressources' && lesson.resources?.length ? ` (${lesson.resources.length})` : ''}</button>)}</nav>
 
@@ -938,7 +999,7 @@ export default function LessonPage() {
         {tab === 'Resume' && <LessonRichOverview lesson={lesson} done={done} />}
         {tab === 'Videos' && <LessonVideos lesson={lesson} />}
         {tab === 'Audio oral' && <LanguageAudioLab lesson={lesson} transcript={speechTranscript} setTranscript={setSpeechTranscript} />}
-        {tab === 'Notes' && <div className="course-panel"><div className="between"><div><h2>{en ? 'My personal notes' : 'Mes notes personnelles'}</h2><p>{en ? 'Your notes are private and linked to your account.' : 'Vos notes sont privees et liees a votre compte.'}</p></div><button className="primary-btn" onClick={saveNote} disabled={savingNote}>{savingNote ? (en ? 'Saving...' : 'Enregistrement...') : (en ? 'Save' : 'Enregistrer')}</button></div><textarea className="lesson-note-editor" rows="12" value={note} onChange={(e) => setNote(e.target.value)} placeholder={en ? 'Write what you want to remember, a tutor question or a useful extract...' : 'Ecrivez ici ce que vous voulez retenir, une question a poser au tuteur, un extrait...'} /></div>}
+        {tab === 'Notes' && <div className="course-panel"><div className="between"><div><h2>{de ? 'Meine persoenlichen Notizen' : en ? 'My personal notes' : 'Mes notes personnelles'}</h2><p>{de ? 'Ihre Notizen sind privat und mit Ihrem Konto verknuepft.' : en ? 'Your notes are private and linked to your account.' : 'Vos notes sont privees et liees a votre compte.'}</p></div><button className="primary-btn" onClick={saveNote} disabled={savingNote}>{savingNote ? (de ? 'Speichern...' : en ? 'Saving...' : 'Enregistrement...') : (de ? 'Speichern' : en ? 'Save' : 'Enregistrer')}</button></div><textarea className="lesson-note-editor" rows="12" value={note} onChange={(e) => setNote(e.target.value)} placeholder={de ? 'Schreiben Sie hier, was Sie behalten wollen, eine Frage oder einen nuetzlichen Auszug...' : en ? 'Write what you want to remember, a tutor question or a useful extract...' : 'Ecrivez ici ce que vous voulez retenir, une question a poser au tuteur, un extrait...'} /></div>}
         {tab === 'Ressources' && <LessonResources lesson={lesson} />}
         {tab === 'Exercices' && (lesson.interactive_exercises?.length ? <InteractiveExercises lesson={lesson} complete={complete} done={done} /> : <div className="course-panel lesson-exercise-panel">
           <h2>{lesson.lesson_type === 'quiz' || lesson.quiz?.length ? 'Quiz de validation' : 'Passer a la pratique'}</h2>
@@ -969,12 +1030,12 @@ export default function LessonPage() {
         </div>)}
       </main>
       <aside className="lesson-side-panel">
-        <div className="course-panel"><h3>{en ? 'Progress' : 'Progression'}</h3><div className="course-progress-circle" style={{ '--progress': `${(done ? 100 : Number(progress?.progress_percent || 0)) * 3.6}deg` }}><strong>{done ? 100 : Math.round(Number(progress?.progress_percent || 0))}%</strong></div><button className={`primary-btn full ${done ? 'success-btn' : ''}`} onClick={complete}>{done ? (en ? 'Completed ✓' : 'Terminee ✓') : (en ? 'Mark as complete' : 'Marquer comme terminee')}</button></div>
-        <div className="course-panel"><h3>{en ? 'In this module' : 'Dans le module'}</h3>{(lesson.module.lessons || []).map((item, i) => <Link key={item.id} className={`lesson-mini-link ${String(item.id) === String(id) ? 'active' : ''}`} to={`/lessons/${item.id}?course=${encodeURIComponent(courseId)}`}><span>{i + 1}</span><b>{item.title}</b></Link>)}</div>
+        <div className="course-panel"><h3>{de ? 'Fortschritt' : en ? 'Progress' : 'Progression'}</h3><div className="course-progress-circle" style={{ '--progress': `${(done ? 100 : Number(progress?.progress_percent || 0)) * 3.6}deg` }}><strong>{done ? 100 : Math.round(Number(progress?.progress_percent || 0))}%</strong></div><button className={`primary-btn full ${done ? 'success-btn' : ''}`} onClick={complete}>{done ? (de ? 'Abgeschlossen ✓' : en ? 'Completed ✓' : 'Terminee ✓') : (de ? 'Als abgeschlossen markieren' : en ? 'Mark as complete' : 'Marquer comme terminee')}</button></div>
+        <div className="course-panel"><h3>{de ? 'In diesem Modul' : en ? 'In this module' : 'Dans le module'}</h3>{(lesson.module.lessons || []).map((item, i) => <Link key={item.id} className={`lesson-mini-link ${String(item.id) === String(id) ? 'active' : ''}`} to={`/lessons/${item.id}?course=${encodeURIComponent(courseId)}`}><span>{i + 1}</span><b>{item.title}</b></Link>)}</div>
       </aside>
     </section>
 
-    <div className="lesson-navigation"><Link className={`outline-btn ${!prev ? 'disabled-link' : ''}`} to={prev ? `/lessons/${prev.id}?course=${encodeURIComponent(courseId)}` : `/courses/${courseId}/modules`}>← {prev ? (en ? 'Previous lesson' : 'Lecon precedente') : (en ? 'Syllabus' : 'Programme')}</Link><Link className="outline-btn" to={`/courses/${courseId}/modules`}>☰ {en ? 'Syllabus' : 'Programme'}</Link>{next ? <Link className="primary-btn" to={`/lessons/${next.id}?course=${encodeURIComponent(courseId)}`}>{en ? 'Next lesson' : 'Lecon suivante'} →</Link> : <Link className="primary-btn" to={`/courses/${courseId}`}>{en ? 'View my final review' : 'Voir mon bilan final'} ✓</Link>}</div>
+    <div className="lesson-navigation"><Link className={`outline-btn ${!prev ? 'disabled-link' : ''}`} to={prev ? `/lessons/${prev.id}?course=${encodeURIComponent(courseId)}` : `/courses/${courseId}/modules`}>← {prev ? (de ? 'Vorherige Lektion' : en ? 'Previous lesson' : 'Lecon precedente') : (de ? 'Programm' : en ? 'Syllabus' : 'Programme')}</Link><Link className="outline-btn" to={`/courses/${courseId}/modules`}>☰ {de ? 'Programm' : en ? 'Syllabus' : 'Programme'}</Link>{next ? <Link className="primary-btn" to={`/lessons/${next.id}?course=${encodeURIComponent(courseId)}`}>{de ? 'Naechste Lektion' : en ? 'Next lesson' : 'Lecon suivante'} →</Link> : <Link className="primary-btn" to={`/courses/${courseId}`}>{de ? 'Meine Abschlussbilanz ansehen' : en ? 'View my final review' : 'Voir mon bilan final'} ✓</Link>}</div>
   </div></AppShell>;
 }
 
