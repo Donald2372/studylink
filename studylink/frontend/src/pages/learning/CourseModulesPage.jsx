@@ -6,6 +6,7 @@ import { AppShell, PageHeader, Progress } from '../../components/AppShell.jsx';
 import { PYTHON_COURSE_SLUG, pythonCourseFallback, flattenCourseLessons } from '../../data/pythonCourseData.js';
 import { englishCourseFallback, isEnglishCourseId } from '../../data/englishCourseData.js';
 import { germanCourseFallback, isGermanCourseId } from '../../data/germanCourseData.js';
+import { cppCourseFallback, isCppCourseId } from '../../data/cppCourseData.js';
 
 const typeLabel = { youtube:'Vidéo YouTube', video_upload:'Vidéo', exercise:'Exercice', text:'Lecture', pdf:'PDF', audio:'Audio', quiz:'Quiz', live:'Direct' };
 
@@ -19,8 +20,8 @@ export default function CourseModulesPage(){
   const [open,setOpen]=useState([]);
   const [busy,setBusy]=useState(false);
 
-  const fallback=id===PYTHON_COURSE_SLUG||id==='demo-python'||isEnglishCourseId(id)||isGermanCourseId(id);
-  useEffect(()=>{api.getCourse(id).then(r=>{setData(r);setOpen(r.modules?.map((_,i)=>i) || [])}).catch(e=>{if(fallback){const courseData=isGermanCourseId(id)?germanCourseFallback:isEnglishCourseId(id)?englishCourseFallback:pythonCourseFallback;setData(courseData);setOpen(courseData.modules.map((_,i)=>i))}else setError(e.message)})},[id,fallback]);
+  const fallback=id===PYTHON_COURSE_SLUG||id==='demo-python'||isEnglishCourseId(id)||isGermanCourseId(id)||isCppCourseId(id);
+  useEffect(()=>{api.getCourse(id).then(r=>{setData(r);setOpen(r.modules?.map((_,i)=>i) || [])}).catch(e=>{if(fallback){const courseData=isCppCourseId(id)?cppCourseFallback:isGermanCourseId(id)?germanCourseFallback:isEnglishCourseId(id)?englishCourseFallback:pythonCourseFallback;setData(courseData);setOpen(courseData.modules.map((_,i)=>i))}else setError(e.message)})},[id,fallback]);
   useEffect(()=>{if(token&&data)api.getCourseLearning(id,token).then(setLearning).catch(()=>{})},[id,token,data]);
 
   const lessons=useMemo(()=>flattenCourseLessons(data||{modules:[]}),[data]);

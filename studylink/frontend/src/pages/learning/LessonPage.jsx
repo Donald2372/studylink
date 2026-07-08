@@ -6,6 +6,7 @@ import { AppShell, PageHeader, Progress } from '../../components/AppShell.jsx';
 import { PYTHON_COURSE_SLUG, pythonCourseFallback, flattenCourseLessons } from '../../data/pythonCourseData.js';
 import { englishCourseFallback, isEnglishCourseId } from '../../data/englishCourseData.js';
 import { germanCourseFallback, isGermanCourseId } from '../../data/germanCourseData.js';
+import { cppCourseFallback, isCppCourseId } from '../../data/cppCourseData.js';
 
 const englishThemes = {
   A1: { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91', image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=85' },
@@ -703,6 +704,56 @@ function enrichGermanLesson(lesson) {
   };
 }
 
+function findCppTemplateLesson(lesson) {
+  const haystack = `${lesson.title || ''} ${lesson.module?.title || ''}`.toLowerCase();
+  const candidates = cppCourseFallback.modules.flatMap((module) => module.lessons || []);
+  return candidates.find((candidate) => {
+    const unit = candidate.title.match(/C\+\+\s+-\s+(.+?):/)?.[1] || candidate.title.match(/-\s+(.+?):/)?.[1];
+    return unit && haystack.includes(unit.toLowerCase());
+  }) || candidates[0] || null;
+}
+
+function enrichCppLesson(lesson) {
+  const template = findCppTemplateLesson(lesson);
+  if (!template) return { ...lesson, ui_locale: 'fr' };
+  const directVideo = lesson.youtube_video_id ? [{
+    id: `${lesson.id}-db-video`,
+    youtube_video_id: lesson.youtube_video_id,
+    title: `${lesson.title} - Video`,
+    channel: 'StudyLink C++',
+    minutes: Math.max(1, Math.round((Number(lesson.duration_seconds) || 900) / 60)),
+    thumbnail_url: `https://img.youtube.com/vi/${lesson.youtube_video_id}/hqdefault.jpg`,
+    description: 'Video integree pour cette lecon C++.',
+  }] : [];
+  return {
+    ...lesson,
+    content: template.content,
+    ui_locale: 'fr',
+    image_url: lesson.image_url || template.image_url,
+    theme: lesson.theme || template.theme,
+    lesson_objectives: template.lesson_objectives,
+    learning_objects: template.learning_objects,
+    detailed_sections: template.detailed_sections,
+    examples: template.examples,
+    use_cases: template.use_cases,
+    grammar_cards: template.grammar_cards,
+    vocabulary_focus: template.vocabulary_focus,
+    dialogues: template.dialogues,
+    common_mistakes: template.common_mistakes,
+    corrected_exercise: template.corrected_exercise,
+    oral_practice: template.oral_practice,
+    resources: template.resources,
+    youtube_videos: [...directVideo, ...(template.youtube_videos || [])].filter((video, index, arr) => video.youtube_video_id && arr.findIndex((item) => item.youtube_video_id === video.youtube_video_id) === index),
+    interactive_exercises: template.interactive_exercises,
+    vocabulary: template.vocabulary,
+    grammar_focus: template.grammar_focus,
+    audio_script: template.audio_script,
+    quiz: template.quiz,
+    annotations: template.annotations,
+    study_method: template.study_method,
+  };
+}
+
 function YouTubeEmbed({ id, title }) {
   if (!id) return null;
   return <div className="lesson-video-frame"><iframe src={`https://www.youtube.com/embed/${id}?rel=0`} title={title || 'Video StudyLink'} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>;
@@ -925,12 +976,12 @@ export default function LessonPage() {
   const [richQuizAnswers, setRichQuizAnswers] = useState({});
   const [speechTranscript, setSpeechTranscript] = useState('');
 
-  const fallback = courseId === PYTHON_COURSE_SLUG || courseId === 'demo-python' || isEnglishCourseId(courseId) || isGermanCourseId(courseId);
+  const fallback = courseId === PYTHON_COURSE_SLUG || courseId === 'demo-python' || isEnglishCourseId(courseId) || isGermanCourseId(courseId) || isCppCourseId(courseId);
   useEffect(() => {
     api.getCourse(courseId)
       .then(setData)
       .catch((e) => {
-        if (fallback) setData(isGermanCourseId(courseId) ? germanCourseFallback : isEnglishCourseId(courseId) ? englishCourseFallback : pythonCourseFallback);
+        if (fallback) setData(isCppCourseId(courseId) ? cppCourseFallback : isGermanCourseId(courseId) ? germanCourseFallback : isEnglishCourseId(courseId) ? englishCourseFallback : pythonCourseFallback);
         else setError(e.message);
       });
   }, [courseId, fallback]);
@@ -952,8 +1003,9 @@ export default function LessonPage() {
   const flat = useMemo(() => flattenCourseLessons(data || { modules: [] }), [data]);
   const rawLesson = flat.find((l) => String(l.id) === String(id));
   const isGermanCourse = isGermanCourseId(courseId) || data?.course?.language === 'de' || /allemand|deutsch|german/i.test(data?.course?.title || '');
-  const isEnglishCourse = isEnglishCourseId(courseId) || data?.course?.language === 'en' || /anglais|english/i.test(data?.course?.title || '');
-  const lesson = rawLesson ? (isGermanCourse ? enrichGermanLesson(rawLesson) : isEnglishCourse ? enrichEnglishLesson(rawLesson, courseId) : rawLesson) : null;
+  const isCppCourse = isCppCourseId(courseId) || ['cpp', 'c++'].includes((data?.course?.language || '').toLowerCase()) || /c\+\+|cpp|c plus plus/i.test(data?.course?.title || '');
+  const isEnglishCourse = !isGermanCourse && !isCppCourse && (isEnglishCourseId(courseId) || data?.course?.language === 'en' || /anglais|english/i.test(data?.course?.title || ''));
+  const lesson = rawLesson ? (isCppCourse ? enrichCppLesson(rawLesson) : isGermanCourse ? enrichGermanLesson(rawLesson) : isEnglishCourse ? enrichEnglishLesson(rawLesson, courseId) : rawLesson) : null;
   const index = flat.findIndex((l) => String(l.id) === String(id));
   const progress = learning.progress?.find((p) => String(p.lesson_id) === String(id));
   const done = progress?.status === 'completed';
