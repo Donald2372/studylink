@@ -17,12 +17,7 @@ async function getCall(callId, userId) {
   return result.rows[0] || null;
 }
 
-function hasTurnServer(servers = []) {
-  return servers.some(server => {
-    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-    return urls.some(url => String(url || '').startsWith('turn:') || String(url || '').startsWith('turns:'));
-  });
-}
+
 
 router.get('/ice-config', async (req, res) => {
   try {
@@ -55,12 +50,10 @@ router.get('/ice-config', async (req, res) => {
         });
       }
 
-      const iceServers = data.ice_servers || [];
       return res.json({
         provider: 'twilio',
         ttl: Number(data.ttl || ttl),
-        hasTurn: hasTurnServer(iceServers),
-        iceServers,
+        iceServers: data.ice_servers || [],
       });
     }
 
@@ -70,25 +63,21 @@ router.get('/ice-config', async (req, res) => {
     const turnCredential = process.env.TURN_CREDENTIAL;
     if (turnUrl && turnUsername && turnCredential) {
       const urls = turnUrl.split(',').map(v => v.trim()).filter(Boolean);
-      const iceServers = [
-        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-        { urls, username: turnUsername, credential: turnCredential },
-      ];
       return res.json({
         provider: 'static',
-        hasTurn: hasTurnServer(iceServers),
-        iceServers,
+        iceServers: [
+          { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+          { urls, username: turnUsername, credential: turnCredential },
+        ],
       });
     }
 
-    const iceServers = [
-      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-    ];
     return res.json({
       provider: 'stun-only',
-      hasTurn: false,
       warning: 'Aucun serveur TURN configuré.',
-      iceServers,
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      ],
     });
   } catch (err) {
     console.error('ICE config error', err);
@@ -240,29 +229,6 @@ router.get('/:id/signals', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur de lecture des signaux WebRTC.' });
-  }
-});
-
-
-router.get('/:id/debug', async (req, res) => {
-  try {
-    const call = await getCall(req.params.id, req.user.id);
-    if (!call) return res.status(404).json({ error: 'Appel introuvable.' });
-    const signals = await query(
-      `SELECT signal_type, COUNT(*)::int AS count
-       FROM call_signals
-       WHERE call_id=$1
-       GROUP BY signal_type`,
-      [req.params.id]
-    );
-    res.json({
-      call: { id: call.id, status: call.status, call_type: call.call_type, created_at: call.created_at, answered_at: call.answered_at },
-      signals: signals.rows,
-      turnConfigured: Boolean((process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) || (process.env.TURN_URL && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL)),
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Diagnostic appel indisponible.' });
   }
 });
 

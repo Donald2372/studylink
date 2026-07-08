@@ -1,4 +1,7 @@
+import { englishCourseSummary } from './englishCourseData.js';
+
 export const demoCourses = [
+  englishCourseSummary,
   {
     "id": "python-pour-debutants-complet",
     "slug": "python-pour-debutants-complet",
