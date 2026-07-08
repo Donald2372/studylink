@@ -55,7 +55,39 @@ const englishResources = [
   { id: 'cefr-grid', title: 'Grille CECRL officielle', resource_type: 'Reference', url: 'https://www.coe.int/en/web/common-european-framework-reference-languages/table-2-cefr-3.3-common-reference-levels-self-assessment-grid' },
 ];
 
+const levelSkillProfiles = {
+  A1: { target: 'survivre dans une interaction simple', output: '3 a 5 phrases simples', strategy: 'repeter, remplacer un mot, poser une question courte' },
+  A2: { target: 'raconter, commander, comparer et demander une precision', output: 'un petit dialogue de 6 lignes', strategy: 'lier les idees avec because, then, after that' },
+  B1: { target: 'expliquer une experience, donner une opinion et justifier', output: 'une reponse structuree de 90 secondes', strategy: 'annoncer l idee, donner un exemple, finir par une conclusion' },
+  B2: { target: 'defendre un point de vue et reagir a une objection', output: 'un argument organise avec avantage, limite et solution', strategy: 'contraster les idees avec however, although, whereas' },
+  C1: { target: 'exprimer une analyse complexe avec nuance', output: 'une prise de parole structuree et persuasive', strategy: 'hedging, signposting, reformulation et synthese' },
+};
+
+const unitProfiles = [
+  { match: /meeting people|introductions/i, context: 'rencontre dans une ecole internationale', roles: ['new student', 'classmate'], samples: ['My name is Lina.', 'I am from Cameroon.', 'I study English twice a week.', 'Nice to meet you.'], cases: [['Premier cours', 'Se presenter et demander le prenom de l autre personne.'], ['Groupe de classe', 'Ecrire un court message de presentation clair.'], ['Entretien simple', 'Dire son nom, son pays, sa ville et son objectif.']] },
+  { match: /daily life|routine/i, context: 'description d une journee normale', roles: ['student', 'roommate'], samples: ['I usually wake up at seven.', 'I sometimes study after dinner.', 'She does not drink coffee.', 'Do you work on weekends?'], cases: [['Routine', 'Expliquer son emploi du temps avec usually, sometimes et never.'], ['Organisation', 'Choisir un moment precis pour pratiquer.'], ['Conversation', 'Demander a quelqu un comment il organise sa journee.']] },
+  { match: /around town|directions|town/i, context: 'demander son chemin dans une ville', roles: ['visitor', 'local person'], samples: ['Go straight and turn left.', 'The pharmacy is opposite the station.', 'Is there a bus stop near here?', 'It is next to the hotel.'], cases: [['Voyage', 'Demander une direction simple.'], ['Accueil', 'Expliquer ou se trouve un lieu.'], ['Transport', 'Confirmer un arret ou un point de repere.']] },
+  { match: /past experiences|weekend|trip/i, context: 'recit d un week-end ou d un voyage', roles: ['friend', 'traveller'], samples: ['I visited Berlin last month.', 'We went by train.', 'I did not stay in a hotel.', 'What did you do yesterday?'], cases: [['Retour de voyage', 'Raconter ou on est alle, ce qu on a fait et ce qu on a aime.'], ['Small talk', 'Repondre naturellement a “How was your weekend?”'], ['Journal', 'Ecrire un court recit au passe avec time markers.']] },
+  { match: /food|shopping|order/i, context: 'commande dans un cafe ou achat en magasin', roles: ['customer', 'waiter'], samples: ['Could I have a glass of water?', 'How much is this jacket?', 'Do you have any vegetarian options?', 'There are not many apples left.'], cases: [['Restaurant', 'Commander poliment et verifier une option.'], ['Magasin', 'Comparer deux produits et demander un ticket.'], ['Courses', 'Dire les quantites avec some, any, much et many.']] },
+  { match: /comparing|choices|comparatives/i, context: 'comparaison de deux options avant une decision', roles: ['buyer', 'advisor'], samples: ['This room is bigger than mine.', 'The train is the fastest option.', 'It is not warm enough.', 'This phone is too expensive.'], cases: [['Appartement', 'Comparer prix, taille, localisation et confort.'], ['Transport', 'Choisir entre bus, train et voiture avec raisons.'], ['Achat', 'Expliquer pourquoi une option est meilleure ou trop chere.']] },
+  { match: /work and study|present perfect|experience/i, context: 'experience de travail, etudes et competences', roles: ['candidate', 'recruiter'], samples: ['I have worked here for two years.', 'She has not finished the report yet.', 'Have you ever led a team?', 'I have already sent the file.'], cases: [['CV oral', 'Presenter son experience sans lister seulement des dates.'], ['Projet', 'Dire ce qui est deja fait et ce qui ne l est pas encore.'], ['Entretien', 'Repondre a “Have you ever...?” avec resultat.']] },
+  { match: /making plans|future/i, context: 'organisation d un rendez-vous ou plan futur', roles: ['colleague', 'tutor'], samples: ['I am meeting the tutor at six.', 'We are going to revise grammar.', 'I will send you the file later.', 'Are you available tomorrow?'], cases: [['Planning', 'Fixer une heure, confirmer et proposer une alternative.'], ['Projet', 'Distinguer intention, arrangement et decision spontanee.'], ['Message', 'Ecrire une confirmation professionnelle.']] },
+  { match: /giving advice|advice|should|must/i, context: 'conseil pratique pour resoudre un probleme', roles: ['mentor', 'learner'], samples: ['You should practise speaking every day.', 'You must not share your password.', 'If you sleep well, you will concentrate better.', 'You have to prepare before the meeting.'], cases: [['Apprentissage', 'Donner un conseil realiste et expliquer pourquoi.'], ['Securite', 'Exprimer obligation, interdiction et risque.'], ['Coaching', 'Transformer un probleme en plan d action.']] },
+  { match: /debating|ideas|debate/i, context: 'discussion argumentee sur education, travail ou technologie', roles: ['speaker', 'opponent'], samples: ['Although online learning is flexible, it requires discipline.', 'The main drawback is isolation.', 'From my perspective, the benefits outweigh the risks.', 'However, the evidence is mixed.'], cases: [['Debat', 'Defendre un point de vue avec avantage et limite.'], ['Reunion', 'Nuancer une opinion sans paraitre agressif.'], ['Essai', 'Construire un paragraphe argumentatif coherent.']] },
+  { match: /professional english|passive|project/i, context: 'mise a jour professionnelle en reunion', roles: ['project manager', 'stakeholder'], samples: ['The report was reviewed yesterday.', 'The process will be implemented next month.', 'Could we clarify the timeline?', 'The budget has been approved.'], cases: [['Reunion', 'Presenter un avancement sans accuser une personne.'], ['Email pro', 'Utiliser le passif pour un style formel.'], ['Projet', 'Clarifier timeline, budget, livrables et decisions.']] },
+  { match: /hypothetical|conditional/i, context: 'analyse d une decision et de scenarios alternatifs', roles: ['advisor', 'founder'], samples: ['If I had more time, I would take an advanced course.', 'If they had invested earlier, they would have grown faster.', 'What would you do in my position?', 'I would choose the safer option.'], cases: [['Decision', 'Imaginer une consequence avant de choisir.'], ['Business', 'Analyser ce qui aurait pu se passer autrement.'], ['Conseil', 'Proposer une option sans imposer.']] },
+  { match: /nuance|precision|hedging/i, context: 'analyse nuancee d un sujet complexe', roles: ['analyst', 'consultant'], samples: ['It is arguably one of the most practical solutions.', 'What is particularly striking is the lack of evidence.', 'Rarely have learners had so many options.', 'The outcome is somewhat uncertain.'], cases: [['Presentation', 'Dire une idee forte sans sur-generaliser.'], ['Article', 'Employer hedging pour rester credible.'], ['Discussion', 'Montrer une position nuancee et defendable.']] },
+  { match: /academic|writing|methodology/i, context: 'resume de resultats ou rapport academique', roles: ['researcher', 'reviewer'], samples: ['The implementation of the framework reduced uncertainty.', 'In light of these findings, the team revised its methodology.', 'The proposal is viable, notwithstanding several limitations.', 'The findings suggest a broader implication.'], cases: [['Rapport', 'Transformer une idee orale en formulation academique.'], ['Synthese', 'Relier resultats, limites et implication.'], ['Memoire', 'Utiliser nominalisation et cohesion.']] },
+  { match: /persuasive|speaking/i, context: 'discours persuasif de cinq minutes', roles: ['presenter', 'audience'], samples: ['Let me begin by addressing the central question.', 'The evidence points in one direction.', 'What should we do next?', 'This is why action matters now.'], cases: [['Pitch', 'Convaincre avec probleme, preuve et appel a l action.'], ['Oral C1', 'Structurer une reponse longue et fluide.'], ['Leadership', 'Faire resonner une idee avec un public.']] },
+];
+
+const defaultUnitProfile = { context: 'situation de communication concrete', roles: ['speaker', 'listener'], samples: ['I can explain my idea clearly.', 'Could you repeat that, please?', 'Let me give you an example.', 'What do you think?'], cases: [['Conversation', 'Repondre clairement avec une phrase complete.'], ['Message', 'Ecrire une idee simple et utile.'], ['Oral', 'Parler pendant une minute avec exemple et question.']] };
+const getUnitProfile = (cleanTitle) => unitProfiles.find((profile) => profile.match.test(cleanTitle)) || defaultUnitProfile;
+const getLevelProfile = (level) => levelSkillProfiles[level] || levelSkillProfiles.A1;
+
 function buildInteractiveExercises({ level, cleanTitle, situation, grammar, vocabulary }) {
+  const unit = getUnitProfile(cleanTitle);
+  const skill = getLevelProfile(level);
   const words = vocabulary.length ? vocabulary : ['communication', 'question', 'answer', 'context'];
   return [
     {
@@ -64,9 +96,9 @@ function buildInteractiveExercises({ level, cleanTitle, situation, grammar, voca
       title: 'Completer les phrases',
       instruction: `Completez avec le vocabulaire de la lecon: ${words.slice(0, 5).join(', ')}.`,
       items: [
-        { prompt: `I need your _____ to finish the conversation about ${cleanTitle}.`, answer: words[0] || 'answer' },
-        { prompt: `Can you ask one clear _____ at the end?`, answer: 'question' },
-        { prompt: `This _____ helps me understand the situation.`, answer: words[1] || 'context' },
+        { prompt: unit.samples[0].replace(words[0] || 'English', '_____'), answer: words[0] || 'English' },
+        { prompt: `In this situation, I speak with a ${unit.roles[1]} and ask one clear _____.`, answer: 'question' },
+        { prompt: `For ${unit.context}, I should use _____ language.`, answer: level === 'C1' ? 'precise' : 'clear' },
       ],
     },
     {
@@ -75,8 +107,8 @@ function buildInteractiveExercises({ level, cleanTitle, situation, grammar, voca
       title: 'Choisir la meilleure phrase',
       instruction: `Choisissez la phrase qui correspond le mieux a la situation: ${situation}`,
       items: [
-        { prompt: 'Phrase correcte', options: [`I can explain this situation clearly.`, `I clear can this situation explain.`, `Clearly situation I can this explain.`], answer: `I can explain this situation clearly.` },
-        { prompt: `Utilisation de ${grammar}`, options: [`I use the target grammar in a simple sentence.`, `I using target grammar simple sentence.`, `Target grammar use I sentence.`], answer: `I use the target grammar in a simple sentence.` },
+        { prompt: 'Phrase naturelle', options: [unit.samples[0], `I clear ${cleanTitle} explain.`, `${cleanTitle} me speak good.`], answer: unit.samples[0] },
+        { prompt: `Strategie ${level}`, options: [skill.strategy, 'Traduire chaque mot avant de parler', 'Parler vite sans structure'], answer: skill.strategy },
       ],
     },
     {
@@ -85,8 +117,8 @@ function buildInteractiveExercises({ level, cleanTitle, situation, grammar, voca
       title: 'Transformer',
       instruction: 'Reformulez chaque phrase pour parler de votre propre vie.',
       items: [
-        { prompt: `Model: I can use ${words[0]} in this situation.`, model: `I can use ${words[0]} when I speak with a classmate.` },
-        { prompt: `Model: This situation is useful for me.`, model: `This situation is useful for me because I want to speak more naturally.` },
+        { prompt: `Model: ${unit.samples[0]}`, model: `${unit.samples[0]} For me, this is useful because I want to ${skill.target}.` },
+        { prompt: `Model: ${unit.samples[1]}`, model: `I can adapt this sentence when I speak with a ${unit.roles[1]}.` },
       ],
     },
     {
@@ -95,7 +127,7 @@ function buildInteractiveExercises({ level, cleanTitle, situation, grammar, voca
       title: 'Production guidee',
       instruction: `Ecrivez un mini-dialogue de 4 lignes pour: ${situation}`,
       checklist: [`Utiliser: ${grammar}`, `Utiliser au moins 4 mots: ${words.slice(0, 4).join(', ')}`, 'Terminer par une question naturelle'],
-      model: `A: Hi, can I ask you a question?\nB: Of course. I can help.\nA: I want to explain ${cleanTitle.toLowerCase()} clearly.\nB: Great, start with a simple example.`,
+      model: `A (${unit.roles[0]}): ${unit.samples[0]}\nB (${unit.roles[1]}): ${unit.samples[1]}\nA: ${unit.samples[2]}\nB: ${unit.samples[3]}`,
     },
   ];
 }
@@ -113,6 +145,8 @@ function enrichEnglishLesson(lesson, courseId) {
   const grammar = extractLine(content, 'Grammaire') || extractLine(content, '- Utiliser la grammaire') || 'structure grammaticale de la lecon';
   const vocabText = extractLine(content, 'Vocabulaire') || extractLine(content, '- Employer le vocabulaire') || 'useful words, expressions and pronunciation';
   const vocabulary = vocabText.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 10);
+  const unit = getUnitProfile(cleanTitle);
+  const skill = getLevelProfile(level);
   const baseVideos = englishVideoLibrary[level] || englishVideoLibrary.A1;
   const directVideo = lesson.youtube_video_id ? [{ youtube_video_id: lesson.youtube_video_id, title: `${cleanTitle} - video principale`, channel: 'StudyLink English', minutes: Math.max(1, Math.round((Number(lesson.duration_seconds) || 600) / 60)) }] : [];
   const videos = [...directVideo, ...baseVideos]
@@ -145,18 +179,18 @@ function enrichEnglishLesson(lesson, courseId) {
       { label: 'Niveau CECRL', value: level },
     ],
     detailed_sections: lesson.detailed_sections?.length ? lesson.detailed_sections : [
-      { title: '1. Mise en situation', body: `Cette lecon commence par une situation concrete: ${situation} L objectif est de savoir quoi dire, dans quel ordre, avec quel niveau de politesse et avec quelle structure.` },
-      { title: '2. Objet de langue', body: `Le coeur de la lecon est: ${grammar}. On observe la forme, on comprend sa fonction, puis on l utilise dans plusieurs phrases personnelles.` },
-      { title: '3. Construction du sens', body: `Le vocabulaire n est pas une liste a memoriser. Les mots (${vocabulary.slice(0, 8).join(', ') || vocabText}) servent a construire un message utile dans la vraie vie.` },
-      { title: '4. Production interactive', body: 'L apprenant ecoute la video, repete les phrases, repond au prompt oral, verifie les erreurs frequentes et valide avec un quiz ou un exercice.' },
+      { title: '1. Mise en situation', body: `Contexte exact: ${unit.context}. Vous jouez le role de ${unit.roles[0]} et vous parlez avec ${unit.roles[1]}. L objectif ${level} est de ${skill.target}, pas seulement de reciter une phrase.` },
+      { title: '2. Objet de langue', body: `Le point central est: ${grammar}. Dans cette unite, il sert a produire ce type de message: "${unit.samples[0]}". On apprend la forme, puis on la transforme pour l utiliser dans un contexte personnel.` },
+      { title: '3. Construction du sens', body: `Le vocabulaire (${vocabulary.slice(0, 8).join(', ') || vocabText}) doit etre associe a une action concrete. Exemple de contexte: ${unit.cases[0][1]}` },
+      { title: '4. Production interactive', body: `Production attendue: ${skill.output}. Methode: ${skill.strategy}. Vous devez produire une phrase modele, une variante personnelle et une question de relance.` },
     ],
     examples: lesson.examples?.length ? lesson.examples : [
-      { title: 'Phrase modele', text: vocabulary[0] ? `I can use "${vocabulary[0]}" in a clear sentence.` : 'I can answer clearly in this situation.' },
-      { title: 'Question utile', text: 'Could you repeat that, please?' },
-      { title: 'Reponse personnelle', text: `In this situation, I want to be clear, polite and specific.` },
-      { title: 'Cas d utilisation 1', text: `At school, I use this language to ask for information and answer politely.` },
-      { title: 'Cas d utilisation 2', text: `At work, I can use the same structure to explain a task or ask for help.` },
-      { title: 'Mini-dialogue', text: `A: Could you help me with this?\nB: Yes, of course. What do you need?` },
+      { title: 'Phrase modele', text: unit.samples[0] },
+      { title: 'Question utile', text: unit.samples.find((sample) => sample.includes('?')) || unit.samples[1] },
+      { title: 'Reponse personnelle', text: `${unit.samples[2]} This matters because I want to ${skill.target}.` },
+      { title: unit.cases[0][0], text: unit.cases[0][1] },
+      { title: unit.cases[1][0], text: unit.cases[1][1] },
+      { title: 'Mini-dialogue', text: `A: ${unit.samples[0]}\nB: ${unit.samples[1]}\nA: ${unit.samples[2]}\nB: ${unit.samples[3]}` },
     ],
     common_mistakes: lesson.common_mistakes?.length ? lesson.common_mistakes : [
       'Traduire mot a mot depuis le francais au lieu d utiliser une structure anglaise simple.',
@@ -177,47 +211,45 @@ function enrichEnglishLesson(lesson, courseId) {
     resources: lesson.resources?.length ? lesson.resources : englishResources.map((resource) => ({ ...resource, id: `${lesson.id}-${resource.id}` })),
     interactive_exercises: lesson.interactive_exercises?.length ? lesson.interactive_exercises : buildInteractiveExercises({ level, cleanTitle, situation, grammar, vocabulary }),
     use_cases: lesson.use_cases?.length ? lesson.use_cases : [
-      { title: 'En classe', text: `Utiliser ${cleanTitle} pour poser une question, repondre clairement et verifier que l autre personne a compris.` },
-      { title: 'Au travail', text: `Employer ${grammar} dans un message court, une reunion ou une explication de tache.` },
-      { title: 'Dans la vie quotidienne', text: `Reutiliser le vocabulaire (${vocabulary.slice(0, 5).join(', ') || vocabText}) dans une situation naturelle.` },
+      ...unit.cases.map(([title, text]) => ({ title, text })),
     ],
     grammar_cards: lesson.grammar_cards?.length ? lesson.grammar_cards : [
-      { title: 'Forme affirmative', formula: 'Subject + verb / auxiliary + complement', example: `I can explain ${cleanTitle.toLowerCase()} clearly.`, note: `Construisez une phrase courte avant d ajouter des details.` },
-      { title: 'Question', formula: 'Question word + auxiliary + subject + verb?', example: 'What do you need? / Could you repeat that?', note: 'La question sert a garder la conversation vivante.' },
-      { title: 'Reponse complete', formula: 'Answer + reason + follow-up', example: `Yes, I can. I use ${vocabulary[0] || 'this word'} because it fits the situation.`, note: 'Une bonne reponse ne s arrete pas a yes/no.' },
+      { title: 'Forme cible', formula: grammar, example: unit.samples[0], note: `Au niveau ${level}, cette forme sert a ${skill.target}.` },
+      { title: 'Question utile', formula: 'Question word / auxiliary + subject + verb?', example: unit.samples.find((sample) => sample.includes('?')) || unit.samples[1], note: 'La question doit relancer la conversation, pas seulement verifier la grammaire.' },
+      { title: 'Extension', formula: 'Answer + reason + example', example: `${unit.samples[2]} For example, ${unit.cases[0][1].toLowerCase()}`, note: `Pour progresser, visez: ${skill.output}.` },
     ],
     vocabulary_focus: lesson.vocabulary_focus?.length ? lesson.vocabulary_focus : vocabulary.slice(0, 8).map((word, index) => ({
       word,
-      meaning: `Mot utile pour parler de ${cleanTitle.toLowerCase()} dans une situation reelle.`,
-      example: `I use "${word}" when I need to explain my idea clearly.`,
-      collocation: index % 2 ? `common ${word}` : `${word} clearly`,
+      meaning: `Mot utile dans le contexte: ${unit.context}.`,
+      example: `${unit.samples[index % unit.samples.length]} (${word})`,
+      collocation: index % 2 ? `${word} in context` : `use ${word} naturally`,
     })),
     dialogues: lesson.dialogues?.length ? lesson.dialogues : [
       {
         title: 'Dialogue modele',
         lines: [
-          'A: Hi, can I ask you something?',
-          'B: Sure. What do you need?',
-          `A: I want to talk about ${cleanTitle.toLowerCase()}.`,
-          `B: Start with a simple example and use ${grammar}.`,
+          `A (${unit.roles[0]}): ${unit.samples[0]}`,
+          `B (${unit.roles[1]}): ${unit.samples[1]}`,
+          `A: ${unit.samples[2]}`,
+          `B: ${unit.samples[3]}`,
         ],
       },
       {
         title: 'Dialogue a transformer',
         lines: [
-          'A: Could you help me practise?',
-          'B: Yes. Say one sentence slowly.',
-          `A: I can use ${vocabulary[0] || 'English'} in a real situation.`,
-          'B: Good. Now add one reason.',
+          `A: I am practising ${cleanTitle.toLowerCase()} for ${unit.context}.`,
+          `B: Use this structure: ${grammar}.`,
+          `A: ${unit.samples[0]} Then I add a personal detail.`,
+          `B: Good. Now finish with a follow-up question.`,
         ],
       },
     ],
     study_method: lesson.study_method?.length ? lesson.study_method : [
-      'Lire le modele une fois pour comprendre le sens general.',
-      'Souligner la structure grammaticale et les mots utiles.',
-      'Ecouter la phrase, puis la repeter lentement trois fois.',
-      'Changer un mot pour creer une phrase personnelle.',
-      'Produire une reponse orale de 45 a 60 secondes.',
+      `Identifier le role: vous etes ${unit.roles[0]}, votre interlocuteur est ${unit.roles[1]}.`,
+      `Memoriser une phrase modele: "${unit.samples[0]}".`,
+      `Changer deux elements: personne, lieu, temps ou opinion.`,
+      `Appliquer la strategie ${level}: ${skill.strategy}.`,
+      `Produire ${skill.output}, puis verifier grammaire, vocabulaire et question finale.`,
     ],
   };
 }
