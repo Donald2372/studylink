@@ -798,33 +798,60 @@ router.post('/career/goals', requireAuth, async (req,res) => {
 // MON ESPACE D'ETUDE PRIVE
 // -----------------------------------------------------------------------------
 router.get('/study-space/dashboard', requireAuth, async (req,res) => {
+  // L'Espace d'étude rassemble de nombreuses sources. Une table optionnelle ou une
+  // ancienne colonne ne doit jamais faire tomber toute la page.
+  const safeRows = async (label, sql, params = []) => {
+    try {
+      return (await query(sql, params)).rows;
+    } catch (error) {
+      console.warn(`[study-space] ${label} indisponible:`, error.message);
+      return [];
+    }
+  };
+
   try {
+    const userId = req.user.id;
     const [tasks,events,notes,goals,focus,distractions,bookings,learning,materials,recommendedCourses,publicMaterials] = await Promise.all([
-      query(`SELECT * FROM study_tasks WHERE user_id=$1 AND (completed_at IS NULL OR completed_at >= CURRENT_DATE) ORDER BY completed_at NULLS FIRST, due_at NULLS LAST, created_at`,[req.user.id]),
-      query(`SELECT * FROM study_planner_events WHERE user_id=$1 AND start_at >= date_trunc('day',now()) - interval '1 day' AND start_at < date_trunc('day',now()) + interval '8 days' ORDER BY start_at`,[req.user.id]),
-      query(`SELECT * FROM study_notes WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 12`,[req.user.id]),
-      query(`SELECT g.*, COALESCE(json_agg(json_build_object('id',m.id,'title',m.title,'position',m.position,'completed_at',m.completed_at) ORDER BY m.position) FILTER (WHERE m.id IS NOT NULL),'[]'::json) milestones
-        FROM study_goals g LEFT JOIN study_goal_milestones m ON m.goal_id=g.id WHERE g.user_id=$1 AND g.status='active' GROUP BY g.id ORDER BY g.created_at`,[req.user.id]),
-      query(`SELECT * FROM study_focus_sessions WHERE user_id=$1 ORDER BY started_at DESC LIMIT 50`,[req.user.id]),
-      query(`SELECT * FROM study_distractions WHERE user_id=$1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 20`,[req.user.id]),
-      query(`SELECT b.*, s.start_time, s.end_time, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar
+      safeRows('tasks', `SELECT * FROM study_tasks WHERE user_id=$1 AND (completed_at IS NULL OR completed_at >= CURRENT_DATE) ORDER BY completed_at NULLS FIRST, due_at NULLS LAST, created_at`, [userId]),
+      safeRows('events', `SELECT * FROM study_planner_events WHERE user_id=$1 AND start_at >= date_trunc('day',now()) - interval '1 day' AND start_at < date_trunc('day',now()) + interval '8 days' ORDER BY start_at`, [userId]),
+      safeRows('notes', `SELECT * FROM study_notes WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 12`, [userId]),
+      safeRows('goals', `SELECT g.*, COALESCE(json_agg(json_build_object('id',m.id,'title',m.title,'position',m.position,'completed_at',m.completed_at) ORDER BY m.position) FILTER (WHERE m.id IS NOT NULL),'[]'::json) milestones
+        FROM study_goals g LEFT JOIN study_goal_milestones m ON m.goal_id=g.id WHERE g.user_id=$1 AND g.status='active' GROUP BY g.id ORDER BY g.created_at`, [userId]),
+      safeRows('focus', `SELECT * FROM study_focus_sessions WHERE user_id=$1 ORDER BY started_at DESC LIMIT 50`, [userId]),
+      safeRows('distractions', `SELECT * FROM study_distractions WHERE user_id=$1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 20`, [userId]),
+      safeRows('bookings', `SELECT b.*, s.start_time, s.end_time, u.full_name AS tutor_name, u.avatar_url AS tutor_avatar
         FROM bookings b
         JOIN availability_slots s ON s.id=b.slot_id
         JOIN tutor_profiles tp ON tp.id=b.tutor_id
         JOIN users u ON u.id=tp.user_id
         WHERE b.student_id=$1 AND s.start_time >= now() AND b.status IN ('confirmed','pending')
-        ORDER BY s.start_time LIMIT 5`,[req.user.id]),
-      query(`SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`,[req.user.id]),
-      query(`SELECT cf.*,c.title AS course_title FROM course_files cf JOIN courses c ON c.id=cf.course_id JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1 ORDER BY cf.created_at DESC LIMIT 6`,[req.user.id]),
-      query(`SELECT c.id,c.title,c.description,c.cover_url,c.level,c.estimated_minutes,lc.name AS category
+        ORDER BY s.start_time LIMIT 5`, [userId]),
+      safeRows('learning', `SELECT ce.*,c.title,c.cover_url,COALESCE(ce.progress_percent,0) progress_percent
+        FROM course_enrollments ce JOIN courses c ON c.id=ce.course_id
+        WHERE ce.user_id=$1 ORDER BY ce.updated_at DESC LIMIT 6`, [userId]),
+      safeRows('materials', `SELECT cf.*,c.title AS course_title
+        FROM course_files cf JOIN courses c ON c.id=cf.course_id
+        JOIN course_enrollments ce ON ce.course_id=c.id AND ce.user_id=$1
+        ORDER BY cf.created_at DESC LIMIT 6`, [userId]),
+      safeRows('recommended_courses', `SELECT c.id,c.title,c.description,c.cover_url,c.level,
+          COALESCE(NULLIF(to_jsonb(c)->>'estimated_minutes','')::int,
+                   NULLIF(to_jsonb(c)->>'estimated_duration_minutes','')::int,0) AS estimated_minutes,
+          lc.name AS category
         FROM courses c LEFT JOIN learning_categories lc ON lc.id=c.category_id
         WHERE c.status='published' AND NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.course_id=c.id AND ce.user_id=$1)
-        ORDER BY c.created_at DESC LIMIT 6`,[req.user.id]),
-      query(`SELECT cf.id,cf.title,cf.file_url,cf.file_type,cf.created_at,c.title AS course_title,c.id AS course_id
+        ORDER BY c.created_at DESC LIMIT 6`, [userId]),
+      safeRows('public_materials', `SELECT cf.id,cf.title,cf.file_url,
+          COALESCE(NULLIF(to_jsonb(cf)->>'mime_type',''),NULLIF(to_jsonb(cf)->>'file_type',''),'document') AS file_type,
+          cf.created_at,c.title AS course_title,c.id AS course_id
         FROM course_files cf JOIN courses c ON c.id=cf.course_id
         WHERE c.status='published' ORDER BY cf.created_at DESC LIMIT 8`)
     ]);
-    ok(res,{tasks:tasks.rows,events:events.rows,notes:notes.rows,goals:goals.rows,focus_sessions:focus.rows,distractions:distractions.rows,bookings:bookings.rows,learning:learning.rows,materials:materials.rows,recommended_courses:recommendedCourses.rows,public_materials:publicMaterials.rows});
+
+    ok(res,{
+      tasks,events,notes,goals,focus_sessions:focus,distractions,bookings,learning,materials,
+      recommended_courses:recommendedCourses,public_materials:publicMaterials,
+      partial_data: false
+    });
   } catch(e){ fail(res,e); }
 });
 
@@ -861,11 +888,33 @@ router.post('/study-space/goals', requireAuth, async(req,res)=>{try{const {title
 router.patch('/study-space/goals/:id', requireAuth, async(req,res)=>{try{const c=(await query('SELECT * FROM study_goals WHERE id=$1 AND user_id=$2',[req.params.id,req.user.id])).rows[0];if(!c)return res.status(404).json({error:'Objectif introuvable.'});const b=req.body||{};const r=await query(`UPDATE study_goals SET title=$1,description=$2,category=$3,color=$4,target_date=$5,effort_hours_per_week=$6,priority=$7,progress_percent=$8,status=$9,updated_at=now() WHERE id=$10 AND user_id=$11 RETURNING *`,[b.title??c.title,b.description??c.description,b.category??c.category,b.color??c.color,b.target_date===undefined?c.target_date:b.target_date,Number(b.effort_hours_per_week??c.effort_hours_per_week),b.priority??c.priority,Math.max(0,Math.min(100,Number(b.progress_percent??c.progress_percent))),b.status??c.status,req.params.id,req.user.id]);ok(res,{goal:r.rows[0]});}catch(e){fail(res,e);}});
 router.post('/study-space/milestones/:id/toggle', requireAuth, async(req,res)=>{try{const r=await query(`UPDATE study_goal_milestones m SET completed_at=CASE WHEN completed_at IS NULL THEN now() ELSE NULL END FROM study_goals g WHERE m.id=$1 AND m.goal_id=g.id AND g.user_id=$2 RETURNING m.*`,[req.params.id,req.user.id]);if(!r.rows[0])return res.status(404).json({error:'Étape introuvable.'});const goalId=(await query('SELECT goal_id FROM study_goal_milestones WHERE id=$1',[req.params.id])).rows[0].goal_id;const stats=(await query(`SELECT COUNT(*)::int total,COUNT(completed_at)::int done FROM study_goal_milestones WHERE goal_id=$1`,[goalId])).rows[0];const progress=stats.total?Math.round(stats.done*10000/stats.total)/100:0;await query(`UPDATE study_goals SET progress_percent=$1,status=CASE WHEN $1>=100 THEN 'completed' ELSE 'active' END,updated_at=now() WHERE id=$2`,[progress,goalId]);ok(res,{milestone:r.rows[0],progress_percent:progress});}catch(e){fail(res,e);}});
 
-router.get('/study-space/stats', requireAuth, async(req,res)=>{try{const [summary,daily,subjects,goals] = await Promise.all([
-  query(`SELECT COALESCE(SUM(elapsed_seconds),0)::int total_seconds,COUNT(*)::int sessions,COALESCE(ROUND(AVG(focus_score),1),0) avg_focus,COUNT(*) FILTER (WHERE status='completed')::int completed_sessions FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days'`,[req.user.id]),
-  query(`SELECT DATE(started_at) day,COALESCE(SUM(elapsed_seconds),0)::int seconds,COUNT(*)::int sessions,COALESCE(ROUND(AVG(focus_score),1),0) focus FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '13 days' GROUP BY DATE(started_at) ORDER BY day`,[req.user.id]),
-  query(`SELECT category,COALESCE(SUM(elapsed_seconds),0)::int seconds FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days' GROUP BY category ORDER BY seconds DESC`,[req.user.id]),
-  query(`SELECT COUNT(*)::int total,COUNT(*) FILTER (WHERE status='completed')::int completed,COALESCE(ROUND(AVG(progress_percent),0),0) avg_progress FROM study_goals WHERE user_id=$1`,[req.user.id])
-]);ok(res,{summary:summary.rows[0],daily:daily.rows,subjects:subjects.rows,goals:goals.rows[0]});}catch(e){fail(res,e);}});
+router.get('/study-space/stats', requireAuth, async(req,res)=>{
+  const safe = async (label, sql, params, fallback) => {
+    try { return (await query(sql, params)).rows; }
+    catch (error) {
+      console.warn(`[study-space/stats] ${label} indisponible:`, error.message);
+      return fallback;
+    }
+  };
+  try {
+    const userId=req.user.id;
+    const [summaryRows,daily,subjects,goalRows] = await Promise.all([
+      safe('summary', `SELECT COALESCE(SUM(elapsed_seconds),0)::int total_seconds,COUNT(*)::int sessions,
+        COALESCE(ROUND(AVG(focus_score),1),0) avg_focus,
+        COUNT(*) FILTER (WHERE status='completed')::int completed_sessions
+        FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days'`, [userId], [{total_seconds:0,sessions:0,avg_focus:0,completed_sessions:0}]),
+      safe('daily', `SELECT DATE(started_at) day,COALESCE(SUM(elapsed_seconds),0)::int seconds,COUNT(*)::int sessions,
+        COALESCE(ROUND(AVG(focus_score),1),0) focus
+        FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '13 days'
+        GROUP BY DATE(started_at) ORDER BY day`, [userId], []),
+      safe('subjects', `SELECT COALESCE(category,'Étude') category,COALESCE(SUM(elapsed_seconds),0)::int seconds
+        FROM study_focus_sessions WHERE user_id=$1 AND started_at>=CURRENT_DATE-INTERVAL '30 days'
+        GROUP BY COALESCE(category,'Étude') ORDER BY seconds DESC`, [userId], []),
+      safe('goals', `SELECT COUNT(*)::int total,COUNT(*) FILTER (WHERE status='completed')::int completed,
+        COALESCE(ROUND(AVG(progress_percent),0),0) avg_progress FROM study_goals WHERE user_id=$1`, [userId], [{total:0,completed:0,avg_progress:0}])
+    ]);
+    ok(res,{summary:summaryRows[0]||{total_seconds:0,sessions:0,avg_focus:0,completed_sessions:0},daily,subjects,goals:goalRows[0]||{total:0,completed:0,avg_progress:0}});
+  }catch(e){fail(res,e);}
+});
 
 export default router;
