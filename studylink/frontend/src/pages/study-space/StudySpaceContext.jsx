@@ -53,6 +53,7 @@ export function StudySpaceProvider({children}){
     toggleTask:(t)=>optimistic(d=>({...d,tasks:d.tasks.map(x=>x.id===t.id?{...x,completed_at:x.completed_at?null:new Date().toISOString()}:x)}),()=>api.updateStudyTask(t.id,{completed:!t.completed_at},token)),
     deleteTask:(id)=>optimistic(d=>({...d,tasks:d.tasks.filter(x=>x.id!==id)}),()=>api.deleteStudyTask(id,token)),
     addEvent:(p)=>optimistic(d=>({...d,events:[...d.events,{...p,id:`local-${Date.now()}`}]}),()=>api.createStudyEvent(p,token)),
+    updateEvent:(id,p)=>optimistic(d=>({...d,events:d.events.map(x=>x.id===id?{...x,...p}:x)}),()=>api.updateStudyEvent(id,p,token)),
     deleteEvent:(id)=>optimistic(d=>({...d,events:d.events.filter(x=>x.id!==id)}),()=>api.deleteStudyEvent(id,token)),
     addNote:(p)=>optimistic(d=>({...d,notes:[{...p,id:`local-${Date.now()}`,updated_at:new Date().toISOString()},...d.notes]}),()=>api.createStudyNote(p,token)),
     updateNote:(id,p)=>optimistic(d=>({...d,notes:d.notes.map(x=>x.id===id?{...x,...p,updated_at:new Date().toISOString()}:x)}),()=>api.updateStudyNote(id,p,token)),
