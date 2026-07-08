@@ -47,6 +47,59 @@ const extractLine = (content = '', label) => {
   return line ? line.replace(new RegExp(`^${label}\\s*:?\\s*`, 'i'), '').trim() : '';
 };
 
+const englishResources = [
+  { id: 'cambridge-dictionary', title: 'Cambridge Dictionary', resource_type: 'Dictionnaire', url: 'https://dictionary.cambridge.org/' },
+  { id: 'british-council-grammar', title: 'British Council Grammar', resource_type: 'Grammaire', url: 'https://learnenglish.britishcouncil.org/grammar' },
+  { id: 'british-council-vocabulary', title: 'British Council Vocabulary', resource_type: 'Vocabulaire', url: 'https://learnenglish.britishcouncil.org/vocabulary' },
+  { id: 'cambridge-pronunciation', title: 'Cambridge Pronunciation', resource_type: 'Prononciation', url: 'https://dictionary.cambridge.org/pronunciation/english/' },
+  { id: 'cefr-grid', title: 'Grille CECRL officielle', resource_type: 'Reference', url: 'https://www.coe.int/en/web/common-european-framework-reference-languages/table-2-cefr-3.3-common-reference-levels-self-assessment-grid' },
+];
+
+function buildInteractiveExercises({ level, cleanTitle, situation, grammar, vocabulary }) {
+  const words = vocabulary.length ? vocabulary : ['communication', 'question', 'answer', 'context'];
+  return [
+    {
+      id: 'fill',
+      type: 'fill',
+      title: 'Completer les phrases',
+      instruction: `Completez avec le vocabulaire de la lecon: ${words.slice(0, 5).join(', ')}.`,
+      items: [
+        { prompt: `I need your _____ to finish the conversation about ${cleanTitle}.`, answer: words[0] || 'answer' },
+        { prompt: `Can you ask one clear _____ at the end?`, answer: 'question' },
+        { prompt: `This _____ helps me understand the situation.`, answer: words[1] || 'context' },
+      ],
+    },
+    {
+      id: 'choice',
+      type: 'choice',
+      title: 'Choisir la meilleure phrase',
+      instruction: `Choisissez la phrase qui correspond le mieux a la situation: ${situation}`,
+      items: [
+        { prompt: 'Phrase correcte', options: [`I can explain this situation clearly.`, `I clear can this situation explain.`, `Clearly situation I can this explain.`], answer: `I can explain this situation clearly.` },
+        { prompt: `Utilisation de ${grammar}`, options: [`I use the target grammar in a simple sentence.`, `I using target grammar simple sentence.`, `Target grammar use I sentence.`], answer: `I use the target grammar in a simple sentence.` },
+      ],
+    },
+    {
+      id: 'transform',
+      type: 'transform',
+      title: 'Transformer',
+      instruction: 'Reformulez chaque phrase pour parler de votre propre vie.',
+      items: [
+        { prompt: `Model: I can use ${words[0]} in this situation.`, model: `I can use ${words[0]} when I speak with a classmate.` },
+        { prompt: `Model: This situation is useful for me.`, model: `This situation is useful for me because I want to speak more naturally.` },
+      ],
+    },
+    {
+      id: 'production',
+      type: 'production',
+      title: 'Production guidee',
+      instruction: `Ecrivez un mini-dialogue de 4 lignes pour: ${situation}`,
+      checklist: [`Utiliser: ${grammar}`, `Utiliser au moins 4 mots: ${words.slice(0, 4).join(', ')}`, 'Terminer par une question naturelle'],
+      model: `A: Hi, can I ask you a question?\nB: Of course. I can help.\nA: I want to explain ${cleanTitle.toLowerCase()} clearly.\nB: Great, start with a simple example.`,
+    },
+  ];
+}
+
 function enrichEnglishLesson(lesson, courseId) {
   if (!isEnglishCourseId(courseId) && !/anglais|english|A1|A2|B1|B2|C1/i.test(`${lesson.title} ${lesson.module?.title || ''}`)) return lesson;
   const level = (`${lesson.title} ${lesson.module?.title || ''}`.match(/\b(A1|A2|B1|B2|C1)\b/i)?.[1] || 'A1').toUpperCase();
@@ -101,6 +154,9 @@ function enrichEnglishLesson(lesson, courseId) {
       { title: 'Phrase modele', text: vocabulary[0] ? `I can use "${vocabulary[0]}" in a clear sentence.` : 'I can answer clearly in this situation.' },
       { title: 'Question utile', text: 'Could you repeat that, please?' },
       { title: 'Reponse personnelle', text: `In this situation, I want to be clear, polite and specific.` },
+      { title: 'Cas d utilisation 1', text: `At school, I use this language to ask for information and answer politely.` },
+      { title: 'Cas d utilisation 2', text: `At work, I can use the same structure to explain a task or ask for help.` },
+      { title: 'Mini-dialogue', text: `A: Could you help me with this?\nB: Yes, of course. What do you need?` },
     ],
     common_mistakes: lesson.common_mistakes?.length ? lesson.common_mistakes : [
       'Traduire mot a mot depuis le francais au lieu d utiliser une structure anglaise simple.',
@@ -118,6 +174,13 @@ function enrichEnglishLesson(lesson, courseId) {
       modelAnswer: `In this situation, I would be polite and clear. I would use simple sentences, key vocabulary and one follow-up question.`,
     },
     youtube_videos: videos,
+    resources: lesson.resources?.length ? lesson.resources : englishResources.map((resource) => ({ ...resource, id: `${lesson.id}-${resource.id}` })),
+    interactive_exercises: lesson.interactive_exercises?.length ? lesson.interactive_exercises : buildInteractiveExercises({ level, cleanTitle, situation, grammar, vocabulary }),
+    use_cases: lesson.use_cases?.length ? lesson.use_cases : [
+      { title: 'En classe', text: `Utiliser ${cleanTitle} pour poser une question, repondre clairement et verifier que l autre personne a compris.` },
+      { title: 'Au travail', text: `Employer ${grammar} dans un message court, une reunion ou une explication de tache.` },
+      { title: 'Dans la vie quotidienne', text: `Reutiliser le vocabulaire (${vocabulary.slice(0, 5).join(', ') || vocabText}) dans une situation naturelle.` },
+    ],
   };
 }
 
@@ -128,6 +191,13 @@ function YouTubeEmbed({ id, title }) {
 
 function renderContent(content = '') {
   return content.split('\n').map((line, index) => line.trim() ? <p key={index}>{line}</p> : <br key={index} />);
+}
+
+function HighlightedText({ text = '', words = [] }) {
+  const terms = words.filter(Boolean).slice(0, 8);
+  if (!terms.length || !text) return text;
+  const pattern = new RegExp(`(${terms.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+  return text.split(pattern).map((part, index) => terms.some((word) => word.toLowerCase() === part.toLowerCase()) ? <mark key={index} className="lesson-keyword">{part}</mark> : part);
 }
 
 function speak(text) {
@@ -194,8 +264,9 @@ function LessonAnnotations({ lesson }) {
 
 function LessonRichOverview({ lesson, done }) {
   const theme = lesson.theme || { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' };
+  const highlightWords = [lesson.grammar_focus, ...(lesson.vocabulary || [])].filter(Boolean);
   return <>
-    {lesson.image_url && <div className="lesson-visual-card rich" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}><img src={lesson.image_url} alt="" /><div><span>Contexte de la lecon</span><b>{lesson.title}</b><p>{lesson.oral_practice?.prompt || 'Observez la situation, identifiez les interlocuteurs et preparez le langage utile.'}</p></div></div>}
+    {lesson.image_url && <div className="lesson-visual-card rich" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}><img src={lesson.image_url} alt="" /><div><span>Contexte de la lecon</span><b>{lesson.title}</b><p><HighlightedText text={lesson.oral_practice?.prompt || 'Observez la situation, identifiez les interlocuteurs et preparez le langage utile.'} words={highlightWords} /></p></div></div>}
     {lesson.lesson_objectives?.length > 0 && <div className="course-panel lesson-objectives-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
       <div className="lesson-panel-head"><span>Objectifs</span><h2>Ce que vous devez savoir faire</h2></div>
       <div className="lesson-objective-list">{lesson.lesson_objectives.map((item, index) => <article key={item}><span>{index + 1}</span><p>{item}</p></article>)}</div>
@@ -206,23 +277,66 @@ function LessonRichOverview({ lesson, done }) {
     </div>}
     {lesson.detailed_sections?.length > 0 && <div className="course-panel lesson-detail-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
       <div className="lesson-panel-head"><span>Explication</span><h2>Comprendre le cours pas a pas</h2></div>
-      <div className="lesson-section-list">{lesson.detailed_sections.map((section) => <article key={section.title}><h3>{section.title}</h3><p>{section.body}</p></article>)}</div>
+      <div className="lesson-section-list">{lesson.detailed_sections.map((section) => <article key={section.title}><h3>{section.title}</h3><p><HighlightedText text={section.body} words={highlightWords} /></p></article>)}</div>
+    </div>}
+    {lesson.examples?.length > 0 && <div className="course-panel lesson-examples-panel">
+      <div className="lesson-panel-head"><span>Exemples</span><h2>Exemples concrets et cas d utilisation</h2></div>
+      <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>Ecouter</button></article>)}</div>
+    </div>}
+    {lesson.use_cases?.length > 0 && <div className="course-panel lesson-usecase-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Cas</span><h2>Cas d utilisation</h2></div>
+      <div className="lesson-usecase-grid">{lesson.use_cases.map((item) => <article key={item.title}><b>{item.title}</b><p><HighlightedText text={item.text} words={highlightWords} /></p></article>)}</div>
     </div>}
     <div className="course-panel lesson-copy lesson-reference-copy">
       <h2>Fiche complete</h2>
       {renderContent(lesson.content || 'Le contenu complementaire de cette lecon sera bientot disponible.')}
       {done && <div className="lesson-success">✓ Cette lecon est terminee et enregistree dans votre progression.</div>}
     </div>
-    {lesson.examples?.length > 0 && <div className="course-panel lesson-examples-panel">
-      <h2>Exemples expliques</h2>
-      <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>Ecouter</button></article>)}</div>
-    </div>}
     {lesson.common_mistakes?.length > 0 && <div className="course-panel language-annotations">
       <h2>Erreurs frequentes</h2>
       <div className="annotation-list">{lesson.common_mistakes.map((item) => <span key={item}>{item}</span>)}</div>
     </div>}
     <LessonAnnotations lesson={lesson} />
   </>;
+}
+
+function LessonResources({ lesson }) {
+  const theme = lesson.theme || { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' };
+  const grouped = lesson.resources || [];
+  return <div className="course-panel rich-resource-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+    <div className="lesson-panel-head"><span>Ressources</span><h2>Ressources de la lecon</h2></div>
+    <div className="rich-resource-grid">{grouped.map((resource) => <a key={resource.id || resource.url} href={resource.url} target="_blank" rel="noreferrer">
+      <span>{resource.resource_type?.slice(0, 2) || '↗'}</span>
+      <div><b>{resource.title}</b><small>{resource.resource_type || 'Lien utile'}</small><p>Ouvrir cette ressource pour approfondir la lecon et verifier les exemples.</p></div>
+      <strong>Ouvrir</strong>
+    </a>)}</div>
+  </div>;
+}
+
+function InteractiveExercises({ lesson, complete, done }) {
+  const [answers, setAnswers] = useState({});
+  const [revealed, setRevealed] = useState({});
+  const exercises = lesson.interactive_exercises || [];
+  const completed = exercises.length && exercises.every((exercise) => {
+    if (exercise.type === 'fill') return exercise.items.every((_, index) => (answers[`${exercise.id}-${index}`] || '').trim());
+    if (exercise.type === 'choice') return exercise.items.every((_, index) => answers[`${exercise.id}-${index}`]);
+    if (exercise.type === 'transform') return exercise.items.every((_, index) => (answers[`${exercise.id}-${index}`] || '').trim().length > 8);
+    if (exercise.type === 'production') return (answers[exercise.id] || '').trim().length > 30;
+    return false;
+  });
+  return <div className="course-panel lesson-exercise-panel rich-exercise-panel">
+    <div className="lesson-panel-head"><span>Atelier</span><h2>Exercices interactifs</h2></div>
+    <div className="interactive-exercise-list">
+      {exercises.map((exercise) => <article key={exercise.id} className={`interactive-exercise-card ${exercise.type}`}>
+        <div className="exercise-card-head"><div><span>{exercise.type}</span><h3>{exercise.title}</h3><p>{exercise.instruction}</p></div><button type="button" onClick={() => setRevealed((state) => ({ ...state, [exercise.id]: !state[exercise.id] }))}>{revealed[exercise.id] ? 'Masquer le modele' : 'Voir le modele'}</button></div>
+        {exercise.type === 'fill' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><input value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder="Votre reponse" />{revealed[exercise.id] && <small>Reponse possible : {item.answer}</small>}</label>)}</div>}
+        {exercise.type === 'choice' && <div className="choice-exercise-list">{exercise.items.map((item, index) => <div key={item.prompt}><b>{item.prompt}</b>{item.options.map((option) => <button type="button" key={option} className={answers[`${exercise.id}-${index}`] === option ? 'active' : ''} onClick={() => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: option }))}>{option}</button>)}{revealed[exercise.id] && <small>Bonne reponse : {item.answer}</small>}</div>)}</div>}
+        {exercise.type === 'transform' && <div className="exercise-field-grid">{exercise.items.map((item, index) => <label key={item.prompt}><span>{item.prompt}</span><textarea rows="2" value={answers[`${exercise.id}-${index}`] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [`${exercise.id}-${index}`]: event.target.value }))} placeholder="Reformulez avec votre propre exemple" />{revealed[exercise.id] && <small>Modele : {item.model}</small>}</label>)}</div>}
+        {exercise.type === 'production' && <div className="production-exercise"><textarea rows="6" value={answers[exercise.id] || ''} onChange={(event) => setAnswers((state) => ({ ...state, [exercise.id]: event.target.value }))} placeholder="Ecrivez votre mini-dialogue ici..." /><div>{exercise.checklist.map((item) => <span key={item}>{item}</span>)}</div>{revealed[exercise.id] && <pre>{exercise.model}</pre>}</div>}
+      </article>)}
+    </div>
+    <button className="primary-btn" disabled={!completed} onClick={complete}>{done ? 'Activites validees ✓' : 'Valider tous les exercices'}</button>
+  </div>;
 }
 
 function LessonVideos({ lesson }) {
@@ -329,8 +443,8 @@ export default function LessonPage() {
         {tab === 'Videos' && <LessonVideos lesson={lesson} />}
         {tab === 'Audio oral' && <LanguageAudioLab lesson={lesson} transcript={speechTranscript} setTranscript={setSpeechTranscript} />}
         {tab === 'Notes' && <div className="course-panel"><div className="between"><div><h2>Mes notes personnelles</h2><p>Vos notes sont privees et liees a votre compte.</p></div><button className="primary-btn" onClick={saveNote} disabled={savingNote}>{savingNote ? 'Enregistrement...' : 'Enregistrer'}</button></div><textarea className="lesson-note-editor" rows="12" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ecrivez ici ce que vous voulez retenir, une question a poser au tuteur, un extrait..." /></div>}
-        {tab === 'Ressources' && <div className="course-panel"><h2>Ressources de la lecon</h2>{lesson.resources?.length ? <div className="course-resource-grid">{lesson.resources.map((r) => <a key={r.id} className="course-resource-card" href={r.url} target="_blank" rel="noreferrer"><span>↗</span><div><b>{r.title}</b><small>{r.resource_type || 'Lien'}</small></div><strong>Ouvrir</strong></a>)}</div> : <p>Aucune ressource specifique n a ete ajoutee a cette lecon.</p>}</div>}
-        {tab === 'Exercices' && <div className="course-panel lesson-exercise-panel">
+        {tab === 'Ressources' && <LessonResources lesson={lesson} />}
+        {tab === 'Exercices' && (lesson.interactive_exercises?.length ? <InteractiveExercises lesson={lesson} complete={complete} done={done} /> : <div className="course-panel lesson-exercise-panel">
           <h2>{lesson.lesson_type === 'quiz' || lesson.quiz?.length ? 'Quiz de validation' : 'Passer a la pratique'}</h2>
           {lesson.quiz?.length ? <>
             <p>Choisissez la meilleure reponse, puis validez quand toutes les questions sont completees.</p>
@@ -356,7 +470,7 @@ export default function LessonPage() {
             </div>
             <button className="primary-btn" disabled={!exerciseChecks.every(Boolean)} onClick={complete}>{done ? 'Activite validee ✓' : 'Valider l activite'}</button>
           </>}
-        </div>}
+        </div>)}
       </main>
       <aside className="lesson-side-panel">
         <div className="course-panel"><h3>Progression</h3><div className="course-progress-circle" style={{ '--progress': `${(done ? 100 : Number(progress?.progress_percent || 0)) * 3.6}deg` }}><strong>{done ? 100 : Math.round(Number(progress?.progress_percent || 0))}%</strong></div><button className={`primary-btn full ${done ? 'success-btn' : ''}`} onClick={complete}>{done ? 'Terminee ✓' : 'Marquer comme terminee'}</button></div>
