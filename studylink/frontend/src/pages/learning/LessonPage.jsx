@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { AppShell, PageHeader, Progress } from '../../components/AppShell.jsx';
 import { PYTHON_COURSE_SLUG, pythonCourseFallback, flattenCourseLessons } from '../../data/pythonCourseData.js';
 import { englishCourseFallback, isEnglishCourseId } from '../../data/englishCourseData.js';
+import { germanCourseFallback, isGermanCourseId } from '../../data/germanCourseData.js';
 
 const englishThemes = {
   A1: { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91', image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=85' },
@@ -866,12 +867,12 @@ export default function LessonPage() {
   const [richQuizAnswers, setRichQuizAnswers] = useState({});
   const [speechTranscript, setSpeechTranscript] = useState('');
 
-  const fallback = courseId === PYTHON_COURSE_SLUG || courseId === 'demo-python' || isEnglishCourseId(courseId);
+  const fallback = courseId === PYTHON_COURSE_SLUG || courseId === 'demo-python' || isEnglishCourseId(courseId) || isGermanCourseId(courseId);
   useEffect(() => {
     api.getCourse(courseId)
       .then(setData)
       .catch((e) => {
-        if (fallback) setData(isEnglishCourseId(courseId) ? englishCourseFallback : pythonCourseFallback);
+        if (fallback) setData(isGermanCourseId(courseId) ? germanCourseFallback : isEnglishCourseId(courseId) ? englishCourseFallback : pythonCourseFallback);
         else setError(e.message);
       });
   }, [courseId, fallback]);
@@ -892,7 +893,7 @@ export default function LessonPage() {
 
   const flat = useMemo(() => flattenCourseLessons(data || { modules: [] }), [data]);
   const rawLesson = flat.find((l) => String(l.id) === String(id));
-  const lesson = rawLesson ? enrichEnglishLesson(rawLesson, courseId) : null;
+  const lesson = rawLesson ? (isGermanCourseId(courseId) ? rawLesson : enrichEnglishLesson(rawLesson, courseId)) : null;
   const index = flat.findIndex((l) => String(l.id) === String(id));
   const progress = learning.progress?.find((p) => String(p.lesson_id) === String(id));
   const done = progress?.status === 'completed';
