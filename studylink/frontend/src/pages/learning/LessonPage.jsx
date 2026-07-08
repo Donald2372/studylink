@@ -78,17 +78,26 @@ function LessonAnnotations({ lesson }) {
 }
 
 function LessonRichOverview({ lesson, done }) {
+  const theme = lesson.theme || { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' };
   return <>
-    {lesson.image_url && <div className="lesson-visual-card"><img src={lesson.image_url} alt="" /><div><span>Contexte visuel</span><b>{lesson.title}</b><p>Observez la situation avant de lire: qui parle, ou, dans quel but, et quel type de langage sera utile ?</p></div></div>}
-    <div className="course-panel lesson-copy">
-      <h2>Dans cette lecon</h2>
+    {lesson.image_url && <div className="lesson-visual-card rich" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}><img src={lesson.image_url} alt="" /><div><span>Contexte de la lecon</span><b>{lesson.title}</b><p>{lesson.oral_practice?.prompt || 'Observez la situation, identifiez les interlocuteurs et preparez le langage utile.'}</p></div></div>}
+    {lesson.lesson_objectives?.length > 0 && <div className="course-panel lesson-objectives-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Objectifs</span><h2>Ce que vous devez savoir faire</h2></div>
+      <div className="lesson-objective-list">{lesson.lesson_objectives.map((item, index) => <article key={item}><span>{index + 1}</span><p>{item}</p></article>)}</div>
+    </div>}
+    {lesson.learning_objects?.length > 0 && <div className="course-panel lesson-object-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Objets</span><h2>Objets du cours</h2></div>
+      <div className="lesson-object-grid">{lesson.learning_objects.map((item) => <article key={item.label}><span>{item.label}</span><b>{item.value}</b></article>)}</div>
+    </div>}
+    {lesson.detailed_sections?.length > 0 && <div className="course-panel lesson-detail-panel" style={{ '--lesson-accent': theme.accent, '--lesson-soft': theme.soft, '--lesson-text': theme.text }}>
+      <div className="lesson-panel-head"><span>Explication</span><h2>Comprendre le cours pas a pas</h2></div>
+      <div className="lesson-section-list">{lesson.detailed_sections.map((section) => <article key={section.title}><h3>{section.title}</h3><p>{section.body}</p></article>)}</div>
+    </div>}
+    <div className="course-panel lesson-copy lesson-reference-copy">
+      <h2>Fiche complete</h2>
       {renderContent(lesson.content || 'Le contenu complementaire de cette lecon sera bientot disponible.')}
       {done && <div className="lesson-success">✓ Cette lecon est terminee et enregistree dans votre progression.</div>}
     </div>
-    {lesson.learning_objects?.length > 0 && <div className="course-panel lesson-object-panel">
-      <h2>Objets du cours</h2>
-      <div className="lesson-object-grid">{lesson.learning_objects.map((item) => <article key={item.label}><span>{item.label}</span><b>{item.value}</b></article>)}</div>
-    </div>}
     {lesson.examples?.length > 0 && <div className="course-panel lesson-examples-panel">
       <h2>Exemples expliques</h2>
       <div className="lesson-example-list">{lesson.examples.map((item) => <article key={item.title}><span>{item.title}</span><p>{item.text}</p><button onClick={() => speak(item.text)}>Ecouter</button></article>)}</div>
@@ -102,16 +111,20 @@ function LessonRichOverview({ lesson, done }) {
 }
 
 function LessonVideos({ lesson }) {
+  const videos = lesson.youtube_videos || [];
+  const [active, setActive] = useState(videos[0]?.youtube_video_id || '');
+  const current = videos.find((video) => video.youtube_video_id === active) || videos[0];
   return <div className="course-panel lesson-youtube-panel">
-    <h2>Videos YouTube recommandees</h2>
-    <p>Ouvrez ces recherches ciblees pour trouver des videos de reference liees exactement au theme de la lecon.</p>
-    <div className="youtube-recommendation-grid">
-      {(lesson.youtube_videos || []).map((video) => <a key={video.id} href={video.url} target="_blank" rel="noreferrer">
-        <span>▶</span>
-        <div><b>{video.title}</b><small>{video.channel}</small><p>{video.description}</p></div>
-      </a>)}
+    <div className="lesson-panel-head"><span>Video</span><h2>Videos YouTube de la lecon</h2></div>
+    <p>La video se lit directement dans StudyLink. Choisissez une video, regardez-la, puis revenez aux exercices de la lecon.</p>
+    {current?.youtube_video_id && <div className="lesson-integrated-video"><iframe src={`https://www.youtube-nocookie.com/embed/${current.youtube_video_id}?rel=0`} title={current.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>}
+    <div className="youtube-recommendation-grid embedded">
+      {videos.map((video) => <button key={video.id} type="button" className={video.youtube_video_id === current?.youtube_video_id ? 'active' : ''} onClick={() => setActive(video.youtube_video_id)}>
+        <img src={video.thumbnail_url} alt="" />
+        <div><b>{video.title}</b><small>{video.channel} - {video.minutes} min</small><p>{video.description}</p></div>
+      </button>)}
     </div>
-    {!lesson.youtube_videos?.length && <p>Aucune video specifique n est liee a cette lecon pour le moment.</p>}
+    {!videos.length && <p>Aucune video specifique n est liee a cette lecon pour le moment.</p>}
   </div>;
 }
 

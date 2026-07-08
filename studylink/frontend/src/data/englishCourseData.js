@@ -10,19 +10,41 @@ const levelImages = {
   C1: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=85',
 };
 
-const videoTopics = {
-  A1: ['English introductions for beginners', 'verb to be English grammar A1', 'asking for directions English beginner'],
-  A2: ['past simple English grammar A2', 'ordering food in English conversation', 'comparatives superlatives English grammar'],
-  B1: ['present perfect English grammar B1', 'future plans English conversation', 'giving advice should must English'],
-  B2: ['English debate phrases B2', 'passive voice English grammar B2', 'second third conditional English grammar'],
-  C1: ['advanced English hedging language', 'academic writing English C1', 'persuasive speaking English advanced'],
+const levelThemes = {
+  A1: { accent: '#1769ff', soft: '#eef5ff', text: '#0f3f91' },
+  A2: { accent: '#0f9f6e', soft: '#ecfbf5', text: '#08734f' },
+  B1: { accent: '#e17800', soft: '#fff6e8', text: '#9a5200' },
+  B2: { accent: '#7c4ae6', soft: '#f5efff', text: '#5531a8' },
+  C1: { accent: '#d93662', soft: '#fff0f4', text: '#9f2244' },
 };
 
-const trustedChannels = ['BBC Learning English', 'British Council LearnEnglish', 'Oxford Online English'];
-
-function youtubeSearchUrl(query) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-}
+const videoLibrary = {
+  A1: [
+    { id: 'I_tRSrPru94', title: 'Introductions and beginner English', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'I_tRSrPru94', title: 'Verb to be for beginners', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'SHXPpsIJTb0', title: 'Asking for directions', channel: 'BBC Learning English', minutes: 6 },
+  ],
+  A2: [
+    { id: 'PgsG98vByiw', title: 'Past simple practice', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'bVRIpmjTSxM', title: 'Ordering food in English', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'FAhpT7BH7GE', title: 'Comparatives and superlatives', channel: 'BBC Learning English', minutes: 6 },
+  ],
+  B1: [
+    { id: 'jwmKjgwlMk8', title: 'Present perfect', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'elPHkXNxi2g', title: 'Talking about future plans', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'O-jJPd5ZYo4', title: 'Should, must and advice', channel: 'BBC Learning English', minutes: 6 },
+  ],
+  B2: [
+    { id: 'D58LCh_1jmM', title: 'Debate and opinion phrases', channel: 'BBC Learning English', minutes: 6 },
+    { id: '7GSrQ4DX8gY', title: 'Passive voice', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'uDoBdq0s8eY', title: 'Conditionals', channel: 'BBC Learning English', minutes: 6 },
+  ],
+  C1: [
+    { id: 'VxQNOXpoLC8', title: 'Hedging and advanced nuance', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'LEi8Cs2z0Q4', title: 'Academic writing style', channel: 'BBC Learning English', minutes: 6 },
+    { id: 'K-Nps59NeBA', title: 'Persuasive speaking', channel: 'BBC Learning English', minutes: 6 },
+  ],
+};
 
 const levelData = [
   {
@@ -272,6 +294,27 @@ Challenge:
 Use at least three vocabulary items from this unit in a short conversation of 60 to 90 seconds.`;
 }
 
+function buildDetailedSections(level, unit, kind) {
+  return [
+    {
+      title: '1. Comprendre la situation',
+      body: `La lecon commence par une situation reelle: ${unit.scenario} Avant d apprendre la grammaire, l apprenant doit comprendre le contexte. Qui parle ? Quelle information est demandee ? Quel ton faut-il utiliser ? Cette etape transforme la lecon en communication concrete.`,
+    },
+    {
+      title: '2. Observer le modele',
+      body: `Les phrases modele montrent la structure naturelle de l anglais. Il faut les lire, les ecouter, puis reperer les mots qui changent. Exemple: "${unit.language[0]}" devient une matrice que l apprenant peut adapter a sa propre vie.`,
+    },
+    {
+      title: '3. Maitriser la forme',
+      body: `Le point central est: ${unit.grammar}. On ne memorise pas seulement une regle: on apprend quand l utiliser, quelle erreur eviter et comment construire une phrase claire. La precision vient d abord, la vitesse vient ensuite.`,
+    },
+    {
+      title: '4. Produire',
+      body: `La derniere etape consiste a parler ou ecrire sans copier. L apprenant cree ses phrases, utilise le vocabulaire de l unite, puis verifie si le message est clair. Une bonne reponse doit etre correcte, personnelle et utile dans la vraie vie.`,
+    },
+  ];
+}
+
 function buildQuiz(level, unit) {
   return [
     {
@@ -317,6 +360,15 @@ function buildLearningObjects(level, unit, kind) {
   ];
 }
 
+function buildLessonObjectives(level, unit, kind) {
+  return [
+    `Comprendre une situation de communication ${level.cefr}: ${unit.scenario}`,
+    `Utiliser correctement: ${unit.grammar}`,
+    `Employer au moins six mots utiles: ${unit.vocabulary.slice(0, 6).join(', ')}`,
+    kind.type === 'audio' ? 'Reproduire le rythme, les pauses et la prononciation du modele' : 'Produire des phrases personnelles sans traduire mot a mot',
+  ];
+}
+
 function buildExamples(unit) {
   return [
     { title: 'Model sentence', text: unit.language[0] },
@@ -326,13 +378,16 @@ function buildExamples(unit) {
 }
 
 function buildVideoRecommendations(level, unit) {
-  const topics = videoTopics[level.cefr] || [`English ${level.cefr} ${unit.title}`];
-  return topics.map((topic, index) => ({
+  const videos = videoLibrary[level.cefr] || [];
+  return videos.map((video, index) => ({
     id: `yt-${level.cefr}-${unit.title}-${index}`,
-    title: `${unit.title}: ${topic}`,
-    channel: trustedChannels[index % trustedChannels.length],
-    url: youtubeSearchUrl(`${trustedChannels[index % trustedChannels.length]} ${topic}`),
-    description: `Recherche YouTube ciblee pour trouver une video de qualite sur ${topic}.`,
+    title: `${unit.title}: ${video.title}`,
+    channel: video.channel,
+    youtube_video_id: video.id,
+    youtube_url: `https://www.youtube.com/watch?v=${video.id}`,
+    thumbnail_url: `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`,
+    minutes: video.minutes,
+    description: `Video integree pour renforcer la lecon: ${unit.title}, niveau ${level.cefr}.`,
   }));
 }
 
@@ -355,6 +410,9 @@ function makeLessons(level, unit, levelIndex, unitIndex) {
         `Speaking situation: ${unit.scenario}`,
       ],
       image_url: levelImages[level.cefr],
+      theme: levelThemes[level.cefr],
+      lesson_objectives: buildLessonObjectives(level, unit, kind),
+      detailed_sections: buildDetailedSections(level, unit, kind),
       learning_objects: buildLearningObjects(level, unit, kind),
       examples: buildExamples(unit),
       common_mistakes: [
