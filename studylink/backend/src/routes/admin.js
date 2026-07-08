@@ -97,15 +97,32 @@ router.post('/seed/python-course', async (_req,res)=>{
   } catch(e){fail(res,e,'Impossible d’installer le cours Python complet.');}
 });
 
+router.post('/seed/java-course', async (_req,res)=>{
+  try {
+    const migrationUrl = new URL('../../migrations/018_complete_java_beginner_to_expert.sql', import.meta.url);
+    const sql = await fs.readFile(migrationUrl, 'utf8');
+    await pool.query(sql);
+    const course = (await query(`SELECT c.*,
+      (SELECT COUNT(*) FROM course_modules m WHERE m.course_id=c.id) AS module_count,
+      (SELECT COUNT(*) FROM lessons l JOIN course_modules m ON m.id=l.module_id WHERE m.course_id=c.id) AS lesson_count,
+      (SELECT COUNT(*) FROM quizzes q JOIN lessons l ON l.id=q.lesson_id JOIN course_modules m ON m.id=l.module_id WHERE m.course_id=c.id) AS quiz_count
+      FROM courses c WHERE c.slug='java-spring-boot' LIMIT 1`)).rows[0];
+    ok(res,{course},201);
+  } catch(e){fail(res,e,'Impossible d’installer le cours Java complet.');}
+});
+
 
 router.post('/seed/full-catalogue', async (_req,res)=>{
   try {
     const baseUrl = new URL('../../migrations/010_full_catalogue_content.sql', import.meta.url);
     const completeUrl = new URL('../../migrations/011_complete_all_catalogue_courses.sql', import.meta.url);
+    const javaUrl = new URL('../../migrations/018_complete_java_beginner_to_expert.sql', import.meta.url);
     const baseSql = await fs.readFile(baseUrl, 'utf8');
     const completeSql = await fs.readFile(completeUrl, 'utf8');
+    const javaSql = await fs.readFile(javaUrl, 'utf8');
     await pool.query(baseSql);
     await pool.query(completeSql);
+    await pool.query(javaSql);
     const summary = (await query(`SELECT COUNT(*)::int AS course_count,
       COALESCE(SUM(module_count),0)::int AS module_count,
       COALESCE(SUM(lesson_count),0)::int AS lesson_count

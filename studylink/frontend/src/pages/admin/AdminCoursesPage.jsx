@@ -11,6 +11,7 @@ export default function AdminCoursesPage() {
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [seedingJava, setSeedingJava] = useState(false);
   const [seedingAll, setSeedingAll] = useState(false);
   const [success, setSuccess] = useState('');
 
@@ -50,6 +51,17 @@ export default function AdminCoursesPage() {
   }
 
 
+  async function installJavaCourse() {
+    setSeedingJava(true); setErr(''); setSuccess('');
+    try {
+      const result = await api.adminSeedJavaCourse(token);
+      setSuccess(`Cours « ${result.course?.title || 'Java de A à Z'} » installé : ${result.course?.module_count || 18} modules, ${result.course?.lesson_count || 144} leçons et ${result.course?.quiz_count || 18} quiz.`);
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSeedingJava(false); }
+  }
+
+
   async function installFullCatalogue() {
     setSeedingAll(true); setErr(''); setSuccess('');
     try {
@@ -67,7 +79,7 @@ export default function AdminCoursesPage() {
     <AdminHeader
       title="Cours"
       subtitle="Créez, structurez et publiez vos formations"
-      action={<div className="admin-header-actions"><button className="admin-btn secondary" onClick={installFullCatalogue} disabled={seedingAll}>{seedingAll ? 'Installation du catalogue...' : '⚡ Installer les 32 formations complètes'}</button><button className="admin-btn secondary" onClick={installPythonCourse} disabled={seeding}>{seeding ? 'Installation...' : 'Python complet'}</button><Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link></div>}
+      action={<div className="admin-header-actions"><button className="admin-btn secondary" onClick={installFullCatalogue} disabled={seedingAll}>{seedingAll ? 'Installation du catalogue...' : '⚡ Installer les 32 formations complètes'}</button><button className="admin-btn secondary" onClick={installJavaCourse} disabled={seedingJava}>{seedingJava ? 'Installation Java...' : '☕ Java A à Z'}</button><button className="admin-btn secondary" onClick={installPythonCourse} disabled={seeding}>{seeding ? 'Installation...' : 'Python complet'}</button><Link className="admin-btn primary" to="/admin/courses/new">＋ Nouveau cours</Link></div>}
     />
 
     <div className="admin-toolbar">
@@ -107,7 +119,7 @@ export default function AdminCoursesPage() {
     </div>
 
     <div className="admin-upload-note" style={{ marginTop: 16 }}>
-      <b>Installation rapide :</b> le bouton « Installer les 32 formations complètes » crée ou met à jour l’ensemble du catalogue avec 5 modules et 20 leçons par cours, soit 640 leçons suivables de bout en bout. Le bouton Python reste disponible pour réinstaller uniquement ce parcours. Un cours en <b>Brouillon</b> reste invisible pour le public ; cliquez sur <b>Publier</b> pour l’afficher.
+      <b>Installation rapide :</b> le bouton « Installer les 32 formations complètes » crée ou met à jour l’ensemble du catalogue avec 5 modules et 20 leçons par cours, soit 640 leçons suivables de bout en bout. Le bouton « Java A à Z » installe un parcours massif de 18 modules et 144 leçons, du niveau débutant à expert. Le bouton Python reste disponible pour réinstaller uniquement ce parcours. Un cours en <b>Brouillon</b> reste invisible pour le public ; cliquez sur <b>Publier</b> pour l’afficher.
     </div>
   </>;
 }

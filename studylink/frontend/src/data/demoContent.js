@@ -26,26 +26,26 @@ export const demoCourses = [
   {
     "id": "java-spring-boot",
     "slug": "java-spring-boot",
-    "title": "Java & Spring Boot",
-    "short_description": "Construisez des API REST professionnelles avec Java et Spring Boot.",
-    "description": "Construisez des API REST professionnelles avec Java et Spring Boot. Ce parcours contient des modules progressifs, des leçons pratiques et des activités pour valider les acquis.",
+    "title": "Java de A à Z — Débutant à Expert",
+    "short_description": "Apprenez Java depuis zéro jusqu’au niveau expert, avec Spring Boot, SQL, tests, sécurité et projet final.",
+    "description": "Un parcours complet de 18 modules et 144 leçons : syntaxe, POO, collections, streams, concurrence, tests, JDBC, HTTP, JVM, Spring Boot, sécurité, Docker et projet final professionnel.",
     "category_name": "Informatique",
-    "level": "intermediate",
-    "author_name": "Marc T.",
-    "estimated_minutes": 480,
+    "level": "all",
+    "author_name": "StudyLink Academy",
+    "estimated_minutes": 9000,
     "cover_url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
     "objectives": [
-      "Maîtriser Java moderne",
-      "Créer une API REST",
-      "Connecter une base de données"
+      "Programmer en Java de façon autonome",
+      "Maîtriser la POO, les collections, les streams et la concurrence",
+      "Créer et sécuriser des API REST avec Spring Boot"
     ],
     "prerequisites": [
-      "Motivation et régularité",
-      "Aucun matériel spécifique requis"
+      "Aucun prérequis en programmation",
+      "Un ordinateur capable d’exécuter un JDK"
     ],
     "is_free": true,
-    "module_count": 3,
-    "lesson_count": 6
+    "module_count": 18,
+    "lesson_count": 144
   },
   {
     "id": "web-react-moderne",

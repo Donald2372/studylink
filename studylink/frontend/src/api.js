@@ -156,6 +156,7 @@ export const api = {
 
   adminDashboard: (token) => request('/admin/dashboard', { token }),
   adminSeedPythonCourse: (token) => request('/admin/seed/python-course', { method:'POST', token }),
+  adminSeedJavaCourse: (token) => request('/admin/seed/java-course', { method:'POST', token }),
   adminSeedFullCatalogue: (token) => request('/admin/seed/full-catalogue', { method:'POST', token }),
   adminSeedPersonalDevelopment: (token) => request('/admin/seed/personal-development', { method:'POST', token }),
   adminCategories: (token, universe='') => request(`/admin/categories${universe ? `?universe=${encodeURIComponent(universe)}` : ''}`, { token }),
