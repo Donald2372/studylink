@@ -4,7 +4,6 @@ import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { AppShell, PageHeader, Avatar, Progress } from '../../components/AppShell.jsx';
 import { PYTHON_COURSE_SLUG, pythonCourseFallback, flattenCourseLessons } from '../../data/pythonCourseData.js';
-import { englishCourseFallback, isEnglishCourseId } from '../../data/englishCourseData.js';
 import { demoCourses } from '../../data/demoContent.js';
 
 const duration = (minutes) => {
@@ -28,7 +27,6 @@ export default function CourseDetailPage() {
   const [busy, setBusy] = useState(false);
 
   const isPythonFallback = id === PYTHON_COURSE_SLUG || id === 'demo-python';
-  const isEnglishFallback = isEnglishCourseId(id);
   const demoCourse = demoCourses.find((course) => String(course.id) === String(id) || String(course.slug) === String(id));
 
   useEffect(() => {
@@ -38,14 +36,13 @@ export default function CourseDetailPage() {
       .then((result) => alive && setData(result))
       .catch((e) => {
         if (isPythonFallback && alive) setData(pythonCourseFallback);
-        else if (isEnglishFallback && alive) setData(englishCourseFallback);
         else if (demoCourse && alive) {
           const genericModules = Array.from({ length: 3 }, (_, mi) => ({ id: `${demoCourse.id}-m${mi+1}`, title: ['Fondamentaux','Mise en pratique','Projet guidé'][mi], description: ['Comprendre les concepts essentiels','Appliquer avec des exercices','Construire un projet concret'][mi], position: mi+1, lessons: Array.from({ length: 2 }, (_, li) => ({ id: `${demoCourse.id}-m${mi+1}-l${li+1}`, title: li===0 ? ['Comprendre les bases','Pratiquer pas à pas','Construire le projet'][mi] : ['Exercices essentiels','Cas pratique','Bilan et prochaines étapes'][mi], lesson_type: li===0?'text':'exercise', content: demoCourse.short_description, duration_seconds: 1800, position: li+1, resources: [] })) }));
           setData({ course: demoCourse, modules: genericModules, files: [] });
         } else if (alive) setError(e.message);
       });
     return () => { alive = false; };
-  }, [id, isPythonFallback, isEnglishFallback, demoCourse]);
+  }, [id, isPythonFallback, demoCourse]);
 
   useEffect(() => {
     if (!token || !data) return;
@@ -101,7 +98,7 @@ export default function CourseDetailPage() {
           <div className="course-social-proof"><span>★ 4,9</span><span>•</span><span>{Number(course.enrollment_count || 1248).toLocaleString('fr-FR')} apprenants</span></div>
         </div>
         <div className="course-hero-side">
-          <div className="course-python-mark">{isEnglishFallback ? 'EN' : '🐍'}</div>
+          <div className="course-python-mark">🐍</div>
           {firstVideo && <button className="course-preview-button" onClick={() => navigate(`/lessons/${firstVideo.id}?course=${encodeURIComponent(id)}`)}>▶ Voir un aperçu</button>}
         </div>
       </section>
@@ -152,7 +149,7 @@ export default function CourseDetailPage() {
               ? <Link className="primary-btn full" to={nextLesson ? `/lessons/${nextLesson.id}?course=${encodeURIComponent(id)}` : `/courses/${id}/modules`}>▶ Continuer le cours</Link>
               : <button className="primary-btn full" onClick={enroll} disabled={busy}>{busy ? 'Inscription...' : '▶ Commencer gratuitement'}</button>}
             <Link className="outline-btn full" to={`/courses/${id}/modules`}>Voir tout le programme</Link>
-            <div className="course-action-includes"><b>Ce cours comprend :</b><span>✓ {lessons.filter((l) => l.lesson_type === 'youtube').length} vidéos intégrées</span><span>✓ {lessons.filter((l) => l.lesson_type === 'audio').length} leçons audio</span><span>✓ {lessons.filter((l) => l.lesson_type === 'exercise').length} exercices pratiques</span><span>✓ {files.length} ressources générales</span><span>✓ Progression enregistrée</span><span>✓ Accès sur ordinateur et mobile</span></div>
+            <div className="course-action-includes"><b>Ce cours comprend :</b><span>✓ {lessons.filter((l) => l.lesson_type === 'youtube').length} vidéos intégrées</span><span>✓ {lessons.filter((l) => l.lesson_type === 'exercise').length} exercices pratiques</span><span>✓ {files.length} ressources générales</span><span>✓ Progression enregistrée</span><span>✓ Accès sur ordinateur et mobile</span></div>
           </section>
           <section className="course-panel course-mentor-card"><Avatar size="lg" src={course.author_avatar_url} name={course.author_name || 'StudyLink'}/><div><small>Votre formateur</small><h3>{course.author_name || 'Équipe StudyLink'}</h3><p>Des explications progressives, des ressources fiables et des exercices pour pratiquer.</p></div></section>
         </aside>
