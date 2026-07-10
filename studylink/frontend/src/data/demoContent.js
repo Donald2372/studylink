@@ -1,11 +1,4 @@
-import { englishCourseSummary } from './englishCourseData.js';
-import { germanCourseSummary } from './germanCourseData.js';
-import { cppCourseSummary } from './cppCourseData.js';
-
 export const demoCourses = [
-  englishCourseSummary,
-  germanCourseSummary,
-  cppCourseSummary,
   {
     "id": "python-pour-debutants-complet",
     "slug": "python-pour-debutants-complet",
