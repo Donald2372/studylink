@@ -314,6 +314,51 @@ const germanSamples = {
   C1: ['Entscheidend ist nicht nur der Inhalt, sondern auch das passende Register.', 'Diese Position laesst sich durch mehrere Beobachtungen stuetzen.', 'Gleichwohl bleibt die Frage nach den praktischen Folgen offen.', 'Abschliessend laesst sich die These praezisieren.'],
 };
 
+const modulePhraseBank = [
+  [/premiers contacts|sich vorstellen/i, ['Hallo, ich heisse Samira.', 'Ich komme aus Kamerun und wohne jetzt in Berlin.', 'Wie heissen Sie?', 'Freut mich, Sie kennenzulernen.']],
+  [/nombres|heure|dates/i, ['Der Termin ist am Montag um neun Uhr.', 'Heute ist der zehnte Juli.', 'Wie spaet ist es bitte?', 'Die Nummer ist null eins sieben sechs.']],
+  [/famille|personnes/i, ['Das ist meine Schwester.', 'Mein Vater arbeitet in Douala.', 'Sie ist freundlich und sehr geduldig.', 'Hast du Geschwister?']],
+  [/maison|logement|wohnen/i, ['Ich wohne in einer kleinen Wohnung.', 'Das Zimmer ist hell und ruhig.', 'Die Kueche ist neben dem Wohnzimmer.', 'Gibt es hier einen Balkon?']],
+  [/manger|boire|essen/i, ['Ich moechte bitte einen Kaffee.', 'Ich esse gern Reis mit Gemuese.', 'Die Suppe ist nicht scharf.', 'Koennen wir bitte bezahlen?']],
+  [/routine|quotidienne|alltag/i, ['Ich stehe um sechs Uhr auf.', 'Danach fruehstuecke ich und fahre zur Arbeit.', 'Am Abend lerne ich Deutsch.', 'Was machst du am Wochenende?']],
+  [/ville|orientation|chemin/i, ['Gehen Sie geradeaus und dann links.', 'Der Bahnhof ist gegenueber der Apotheke.', 'Wie komme ich zum Rathaus?', 'Nehmen Sie die Strassenbahn Nummer zwei.']],
+  [/achats|vetements|shopping/i, ['Ich suche eine Jacke in Groesse M.', 'Diese Hose ist zu teuer.', 'Kann ich mit Karte bezahlen?', 'Haben Sie das auch in Blau?']],
+  [/sante|corps/i, ['Ich habe Kopfschmerzen.', 'Seit gestern tut mir der Ruecken weh.', 'Sie sollten viel Wasser trinken.', 'Ich brauche einen Termin beim Arzt.']],
+  [/loisirs|invitations/i, ['Am Samstag gehe ich ins Kino.', 'Hast du Lust, mitzukommen?', 'Leider habe ich keine Zeit.', 'Vielleicht koennen wir naechste Woche gehen.']],
+  [/travail|etudes|candidature|entretien/i, ['Ich arbeite als Techniker.', 'Ich habe Erfahrung im Kundenservice.', 'Meine Staerke ist, dass ich gut organisiere.', 'Warum interessieren Sie sich fuer diese Stelle?']],
+  [/passe|experiences|recits/i, ['Am Wochenende bin ich nach Hamburg gefahren.', 'Ich habe dort einen Freund besucht.', 'Zuerst war alles einfach, aber dann gab es ein Problem.', 'Was ist danach passiert?']],
+  [/voyages|reservations/i, ['Ich habe ein Zimmer reserviert.', 'Der Zug faehrt um acht Uhr dreissig ab.', 'Ich moechte meine Buchung aendern.', 'Gibt es noch einen freien Platz?']],
+  [/ecole|apprentissage/i, ['Ich lerne besser, wenn ich jeden Tag wiederhole.', 'Diese Aufgabe ist schwieriger als die letzte.', 'Ich brauche mehr Beispiele.', 'Wie kann ich meine Aussprache verbessern?']],
+  [/medias|technologie/i, ['Ich benutze diese App jeden Tag.', 'Schalten Sie das Geraet bitte aus und wieder ein.', 'Die Verbindung funktioniert nicht.', 'Kannst du mir die Datei schicken?']],
+  [/relations|emotions|conflits/i, ['Ich bin enttaeuscht, weil wir nicht gesprochen haben.', 'Ich verstehe deinen Punkt, aber ich sehe es anders.', 'Lass uns eine Loesung finden.', 'Wie fuehlst du dich dabei?']],
+  [/administration|services|reclamations|droit/i, ['Ich moechte einen Antrag stellen.', 'Koennten Sie mir sagen, welche Unterlagen fehlen?', 'Ich schreibe wegen meiner Rechnung.', 'Ich bitte um eine schriftliche Bestaetigung.']],
+  [/environnement|meteo/i, ['Heute ist es kuehler als gestern.', 'Wir sollten weniger Plastik benutzen.', 'Wenn es regnet, nehme ich den Bus.', 'Welche Massnahme waere am sinnvollsten?']],
+  [/opinions|decisions|argumentation|debats/i, ['Meiner Ansicht nach hat diese Loesung zwei Vorteile.', 'Ein Gegenargument ist jedoch der Preis.', 'Trotzdem halte ich den Vorschlag fuer sinnvoll.', 'Welche Alternative schlagen Sie vor?']],
+  [/presentation|presentations/i, ['Ich moechte heute ueber drei Punkte sprechen.', 'Zunaechst erklaere ich den Hintergrund.', 'Anschliessend zeige ich ein Beispiel.', 'Vielen Dank fuer Ihre Aufmerksamkeit.']],
+  [/rapports|syntheses|sources/i, ['Der Text stellt zwei Positionen gegenueber.', 'Die wichtigsten Ergebnisse lassen sich so zusammenfassen.', 'Im Gegensatz dazu betont die zweite Quelle den sozialen Aspekt.', 'Daraus ergibt sich eine vorsichtige Schlussfolgerung.']],
+  [/science|recherche|technologie/i, ['Die Methode wurde in mehreren Schritten angewendet.', 'Die Ergebnisse zeigen eine deutliche Tendenz.', 'Allerdings ist die Datenlage begrenzt.', 'Weitere Forschung waere notwendig.']],
+  [/economie|politique|societe/i, ['Die Entwicklung hat langfristige Folgen.', 'Aus wirtschaftlicher Sicht ist die Lage komplex.', 'Politisch gesehen bleibt die Frage umstritten.', 'Man sollte verschiedene Perspektiven beruecksichtigen.']],
+  [/culture|litterature|film|essai/i, ['Die Szene zeigt einen inneren Konflikt.', 'Der Autor kritisiert indirekt die Gesellschaft.', 'Auffaellig ist die ruhige, aber praezise Sprache.', 'Welche Wirkung hat diese Darstellung?']],
+  [/registre|precision|spontaneite|idiomatique/i, ['Das klingt zwar korrekt, aber nicht ganz natuerlich.', 'In einem formellen Kontext wuerde ich anders formulieren.', 'Die Nuance liegt im Verb und im Ton.', 'Man koennte es praeziser ausdruecken.']],
+  [/negociation|leadership/i, ['Ich verstehe Ihre Bedenken.', 'Lassen Sie uns die Risiken getrennt betrachten.', 'Ich schlage einen Kompromiss vor.', 'Unter welchen Bedingungen waere das akzeptabel?']],
+];
+
+function languageForModule(cefr, title) {
+  const found = modulePhraseBank.find(([pattern]) => pattern.test(title));
+  return found ? found[1] : germanSamples[cefr];
+}
+
+function sceneForModule(cefr, title, goal) {
+  const levelFrame = {
+    A1: 'une scene courte du quotidien avec phrases simples et repetition',
+    A2: 'une interaction pratique ou il faut demander, expliquer et reagir',
+    B1: 'une situation autonome ou il faut raconter, justifier et resoudre un probleme',
+    B2: 'un echange nuance ou il faut argumenter, reformuler et tenir compte du registre',
+    C1: 'une situation avancee ou il faut parler avec precision, synthese et style',
+  };
+  return `Dans ce module, l apprenant travaille "${title}" comme ${levelFrame[cefr]}. Objectif concret: ${goal}.`;
+}
+
 function wordsFromModule(title, goal, grammar) {
   return [...new Set(`${title} ${goal} ${grammar}`
     .split(/[^A-Za-zÀ-ÿ]+/)
@@ -329,8 +374,8 @@ const fullGermanLevelData = Object.entries(levelMeta).map(([cefr, meta]) => {
       moduleTitle: `${cefr} - Module ${index + 1} - ${title}`,
       grammar,
       vocabulary: wordsFromModule(title, goal, grammar),
-      scenario: `Vous devez ${goal} dans une situation reelle de niveau ${cefr}.`,
-      language: germanSamples[cefr],
+      scenario: sceneForModule(cefr, title, goal),
+      language: languageForModule(cefr, title),
       moduleGoal: goal,
     }));
   return {
@@ -425,28 +470,50 @@ Niveau: ${level.cefr}
 Lernziel: ${kind.goal}
 Reale Situation: ${unit.scenario}
 
-Ausfuehrliche Erklaerung:
-Diese Lektion trainiert Deutsch als Werkzeug fuer echte Kommunikation. Zuerst klaeren Sie, wer spricht, welches Ziel das Gespraech hat, welches Register passt und welche Information ausgetauscht werden muss. Danach verbinden Sie die Grammatik mit einer kommunikativen Absicht: vorstellen, berichten, vergleichen, begruenden, argumentieren oder ueberzeugen.
+1. Situation wie in einem kommunikativen Lehrwerk
+Stellen Sie sich eine konkrete Szene vor: zwei Personen sprechen, weil sie ein reales Ziel haben. Niemand spricht Grammatik, um Grammatik zu zeigen. Man spricht, um etwas zu erreichen: sich vorstellen, etwas kaufen, einen Termin machen, ein Problem klaeren, eine Meinung verteidigen oder eine Quelle zusammenfassen.
+
+In diesem Modul ist das Ziel: ${unit.moduleGoal}.
+
+2. Erst verstehen, dann sprechen
+Lesen Sie zuerst die Modellsätze. Fragen Sie sich:
+- Wer spricht?
+- Was will die Person erreichen?
+- Welche Information ist neu?
+- Welcher Satz kann ich sofort in meinem Leben benutzen?
+
+3. Mini-Dialog zum Nachbauen
+A: ${unit.language[0]}
+B: ${unit.language[1] || unit.language[0]}
+A: ${unit.language[2] || 'Koennen Sie mir ein Beispiel geben?'}
+B: ${unit.language[3] || 'Ja, natuerlich.'}
 
 Grammatikschwerpunkt:
 ${unit.grammar}
 
-Nuetzliche Sprache:
+4. Warum diese Grammatik wichtig ist
+Diese Grammatik ist kein trockenes Regelpaket. Sie hilft Ihnen, in der Szene genauer zu sprechen. Achten Sie besonders auf die Verbposition, die Artikel, die Endungen und die Satzklammer. Wenn der Satz falsch klingt, pruefen Sie zuerst das Verb: Wo steht es? Dann pruefen Sie den Artikel und den Kasus.
+
+5. Nuetzliche Sprache
 - ${unit.language.join('\n- ')}
 
-Wortschatzbank:
+6. Wortschatzbank
 ${unit.vocabulary.map((word) => `- ${word}`).join('\n')}
 
-Anwendung:
-Schreiben Sie eigene Saetze, sprechen Sie sie laut, korrigieren Sie Verbposition, Artikel und Kasus, und produzieren Sie am Ende eine freie Antwort mit Beispiel und Rueckfrage.`;
+7. Anwendung
+Schreiben Sie drei eigene Saetze, sprechen Sie sie laut, korrigieren Sie Verbposition, Artikel und Kasus, und produzieren Sie am Ende eine freie Antwort mit Beispiel und Rueckfrage.
+
+8. Kleine Meisteraufgabe
+Nehmen Sie sich 60 Sekunden auf. Sprechen Sie frei ueber "${unit.title}". Benutzen Sie mindestens vier Woerter aus der Wortschatzbank und mindestens eine Struktur aus der Grammatik.`;
 }
 
 function buildDetailedSections(level, unit) {
   return [
-    { title: '1. Reale Kommunikationssituation verstehen', body: `Kontext: ${unit.scenario} Sie erkennen zuerst Rolle, Ziel, Ton und benoetigte Information. So wird Grammatik sofort praktisch.` },
-    { title: '2. Sprachmuster beobachten', body: `Die Modellsaetze zeigen natuerliche deutsche Strukturen. "${unit.language[0]}" ist ein Satzrahmen, den Sie variieren und persoenlich anwenden.` },
-    { title: '3. Form und Funktion beherrschen', body: `Der Kernpunkt ist: ${unit.grammar}. Wichtig sind Verbposition, Artikel, Kasus, Satzklammer und passende Redemittel.` },
-    { title: '4. Frei produzieren', body: `Auf Niveau ${level.cefr} muessen Sie nicht nur erkennen, sondern selbst produzieren: korrekt, persoenlich, verstaendlich und mit Rueckfrage.` },
+    { title: '1. Die Szene verstehen', body: `Kontext: ${unit.scenario} Lernen Sie nicht zuerst eine Regel, sondern zuerst eine Szene. Das Gehirn merkt sich Sprache besser, wenn es weiss, wofuer der Satz gebraucht wird.` },
+    { title: '2. Sprachmuster beobachten', body: `Der wichtigste Satz ist: "${unit.language[0]}". Behandeln Sie ihn wie einen Baukasten: ein Wort ersetzen, eine Person ersetzen, eine Zeit ersetzen, dann laut sprechen.` },
+    { title: '3. Grammatik als Werkzeug', body: `Der Kernpunkt ist: ${unit.grammar}. Fragen Sie immer: Welche Aufgabe loest diese Struktur? Erzaehlt sie etwas? Macht sie eine Frage hoeflicher? Verbindet sie zwei Ideen? Macht sie den Stil formeller?` },
+    { title: '4. Aussprache und Rhythmus', body: `Sprechen Sie die Saetze nicht Wort fuer Wort wie eine Liste. Sprechen Sie in Gruppen: Information + Verb + Detail. Wiederholen Sie langsam, dann normal, dann ohne zu lesen.` },
+    { title: '5. Frei produzieren', body: `Auf Niveau ${level.cefr} reicht Erkennen nicht. Sie muessen eine eigene Antwort bauen: Situation nennen, Satzmuster verwenden, ein Beispiel geben und mit einer Rueckfrage enden.` },
   ];
 }
 
