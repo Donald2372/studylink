@@ -33,6 +33,7 @@ import EntrepreneurshipPage from './pages/entrepreneurship/EntrepreneurshipPage.
 import BusinessPlanCoursePage from './pages/entrepreneurship/BusinessPlanCoursePage.jsx';
 import EntrepreneurToolkitPage from './pages/entrepreneurship/EntrepreneurToolkitPage.jsx';
 import EntrepreneurProjectPage from './pages/entrepreneurship/EntrepreneurProjectPage.jsx';
+import MathWhiteboardPage from './pages/math/MathWhiteboardPage.jsx';
 import Register from './pages/Register.jsx';
 import Profile from './pages/Profile.jsx';
 import AdminGuard from './pages/admin/AdminGuard.jsx';
@@ -82,6 +83,7 @@ export default function App(){return <Routes>
   <Route path="/entrepreneurship/business-plan" element={<BusinessPlanCoursePage/>}/>
   <Route path="/entrepreneurship/toolkit" element={<EntrepreneurToolkitPage/>}/>
   <Route path="/entrepreneurship/project" element={<EntrepreneurProjectPage/>}/>
+  <Route path="/math-whiteboard" element={<MathWhiteboardPage/>}/>
   <Route path="/study-space" element={<StudySpaceProvider><StudyTodayPage/></StudySpaceProvider>}/>
   <Route path="/study-space/focus" element={<StudySpaceProvider><StudyFocusPage/></StudySpaceProvider>}/>
   <Route path="/study-space/planning" element={<StudySpaceProvider><StudyPlanningPage/></StudySpaceProvider>}/>

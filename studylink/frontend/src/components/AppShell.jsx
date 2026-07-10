@@ -47,7 +47,7 @@ export function AppShell({ children, wide = false }) {
             {[
               ['/', '⌂', 'Accueil'], ['/search', '⌕', 'Tuteurs'], ['/catalogue', '▤', 'Catalogue'],
               ['/personal-development', '✦', 'Développement perso'], ['/entrepreneurship', '↗', 'Entrepreneuriat'],
-              ['/bootcamps', '⚑', 'Bootcamps'], ['/career-prep', '◎', 'Carrière'], ['/materials', '▱', 'Documents'],
+              ['/bootcamps', '⚑', 'Bootcamps'], ['/career-prep', '◎', 'Carrière'], ['/math-whiteboard', '∑', 'Tableau maths'], ['/materials', '▱', 'Documents'],
               ['/forum', '◌', 'Forum'], ['/messages', '□', 'Messages'], ['/bookings', '◉', 'Sessions'], ['/study-space', '⌂', 'Espace d’étude'], ['/profile', '○', 'Profil'],
               ...(user?.role === 'admin' ? [['/admin', '⚙', 'Administration']] : [])
             ].map(([to, icon, label]) => (
