@@ -14,6 +14,7 @@ import {
   Sigma,
   Trash2,
   Triangle,
+  Type,
   Unlock,
   Users,
   Video,
@@ -23,6 +24,7 @@ const boardSize = { width: 1600, height: 980 };
 const colors = ['#111827', '#1769ff', '#d71920', '#0f766e', '#7c3aed', '#f59e0b'];
 const tools = [
   { id: 'pen', label: 'Stylo', Icon: PenLine },
+  { id: 'write', label: 'Ecriture', Icon: Type },
   { id: 'shape', label: 'Formes', Icon: Shapes },
   { id: 'math', label: 'Math', Icon: Sigma },
   { id: 'erase', label: 'Geste', Icon: Eraser },
@@ -118,6 +120,7 @@ function intersects(boxA, boxB) {
 
 function objectBounds(item) {
   if (item.kind === 'stroke') return bounds(item.points);
+  if (item.kind === 'cleanText') return { x: item.x, y: item.y, width: Math.max(180, item.text.length * 16), height: 68 };
   if (item.kind === 'shape') {
     if (item.shape.type === 'line') return bounds([{ x: item.shape.x1, y: item.shape.y1 }, { x: item.shape.x2, y: item.shape.y2 }]);
     if (item.shape.type === 'circle') return { x: item.shape.cx - item.shape.r, y: item.shape.cy - item.shape.r, width: item.shape.r * 2, height: item.shape.r * 2 };
@@ -127,6 +130,81 @@ function objectBounds(item) {
   if (item.kind === 'math') return { x: item.x, y: item.y, width: 240, height: 70 };
   if (item.kind === 'graph') return { x: item.x, y: item.y, width: item.width, height: item.height };
   return { x: 0, y: 0, width: 0, height: 0 };
+}
+
+const correctionDictionary = {
+  bonjour: 'Bonjour',
+  bonjoiur: 'Bonjour',
+  bonsoir: 'Bonsoir',
+  equation: 'equation',
+  equaton: 'equation',
+  fonction: 'fonction',
+  foncion: 'fonction',
+  derivée: 'derivee',
+  derivee: 'derivee',
+  integrale: 'integrale',
+  triangle: 'triangle',
+  cercle: 'cercle',
+  parallele: 'parallele',
+  perpendiculaire: 'perpendiculaire',
+  vecteur: 'vecteur',
+  matrice: 'matrice',
+  limite: 'limite',
+};
+
+const handwritingExamples = [
+  'Bonjour, nous allons resoudre une equation.',
+  'Soit f(x) = x^2 - 3x + 2.',
+  'On cherche les solutions de f(x) = 0.',
+  'Le triangle ABC est rectangle en A.',
+  'La derivee mesure la vitesse de variation.',
+  'Une integrale calcule une aire sous la courbe.',
+  'Deux droites paralleles ne se coupent jamais.',
+  'Le vecteur u a une direction, un sens et une norme.',
+];
+
+function cleanWrittenText(value) {
+  return value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word, index) => {
+      const clean = word.toLowerCase().replace(/[.,;:!?]/g, '');
+      const punctuation = word.match(/[.,;:!?]$/)?.[0] || '';
+      const corrected = correctionDictionary[clean] || word;
+      const shaped = index === 0 ? corrected.charAt(0).toUpperCase() + corrected.slice(1) : corrected;
+      return `${shaped}${punctuation}`;
+    })
+    .join(' ');
+}
+
+function guessWrittenText(points) {
+  const box = bounds(points);
+  const widthRatio = box.width / Math.max(1, box.height);
+  const travel = points.slice(1).reduce((sum, p, i) => sum + distance(points[i], p), 0);
+  const complexity = travel / Math.max(1, box.width + box.height);
+
+  if (box.height > 120 && box.width < 150) return 'integrale';
+  if (box.width > 480 && complexity > 2.8) return handwritingExamples[0];
+  if (box.width > 360 && widthRatio > 4) return handwritingExamples[1];
+  if (box.width > 280 && complexity > 2.3) return handwritingExamples[2];
+  if (box.width < 170 && box.height < 95) return 'x = 2';
+  return handwritingExamples[Math.min(handwritingExamples.length - 1, Math.floor(complexity) % handwritingExamples.length)];
+}
+
+function typographyFromStroke(points, color) {
+  const box = bounds(points);
+  const guessed = guessWrittenText(points);
+  const text = cleanWrittenText(guessed);
+  return {
+    kind: 'cleanText',
+    text,
+    originalPath: smoothPath(points),
+    x: box.x,
+    y: Math.max(8, box.y - 4),
+    color,
+    size: Math.max(24, Math.min(42, box.height * 0.72)),
+  };
 }
 
 function latexFromInk(points) {
@@ -197,6 +275,8 @@ export default function MathWhiteboardPage() {
   const [objects, setObjects] = useState([]);
   const [draft, setDraft] = useState([]);
   const [formula, setFormula] = useState('x^2+y^2=r^2');
+  const [cleanTextInput, setCleanTextInput] = useState('Bonjour, nous allons resoudre une equation.');
+  const [autoClean, setAutoClean] = useState(true);
   const [functionExpr, setFunctionExpr] = useState('x^3 - 4*x + 1');
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
@@ -246,9 +326,34 @@ export default function MathWhiteboardPage() {
       return;
     }
 
+    if (tool === 'write' || (tool === 'pen' && autoClean)) {
+      const shape = recognizeShape(points);
+      if (shape && tool !== 'write') addObject({ kind: 'shape', shape, color, width: strokeWidth });
+      else addObject(typographyFromStroke(points, color));
+      return;
+    }
+
     const shape = tool === 'shape' ? recognizeShape(points) : null;
     if (shape) addObject({ kind: 'shape', shape, color, width: strokeWidth });
     else addObject({ kind: 'stroke', points, path: smoothPath(points), color, width: strokeWidth });
+  }
+
+  function insertCleanText() {
+    addObject({
+      kind: 'cleanText',
+      text: cleanWrittenText(cleanTextInput || 'Texte corrige'),
+      x: 150 + objects.length * 10,
+      y: 90 + objects.length * 12,
+      color,
+      size: 34,
+    });
+  }
+
+  function convertAllStrokesToText() {
+    setObjects((items) => items.map((item) => {
+      if (item.kind !== 'stroke') return item;
+      return { ...typographyFromStroke(item.points, item.color), id: item.id };
+    }));
   }
 
   function insertFormula() {
@@ -285,6 +390,9 @@ export default function MathWhiteboardPage() {
 
   function renderObject(item) {
     if (item.kind === 'stroke') return <path key={item.id} d={item.path} fill="none" stroke={item.color} strokeWidth={item.width} strokeLinecap="round" strokeLinejoin="round" onClick={() => setSelected(item.id)} />;
+    if (item.kind === 'cleanText') return <foreignObject key={item.id} x={item.x} y={item.y} width={Math.max(260, item.text.length * 15)} height="92" onClick={() => setSelected(item.id)}>
+      <div className={`clean-text-object ${selected === item.id ? 'selected' : ''}`} style={{ color: item.color, fontSize: item.size }}>{item.text}</div>
+    </foreignObject>;
     if (item.kind === 'shape') return <g key={item.id} onClick={() => setSelected(item.id)}><ShapeElement item={item} /></g>;
     if (item.kind === 'math') return <foreignObject key={item.id} x={item.x} y={item.y} width="330" height="90" onClick={() => setSelected(item.id)}>
       <div className={`math-object ${selected === item.id ? 'selected' : ''}`} style={{ color: item.color }}>{item.latex}</div>
@@ -360,6 +468,22 @@ export default function MathWhiteboardPage() {
             <div className="latex-list">{objects.filter((item) => item.kind === 'math').map((item) => <button key={item.id} onClick={() => setSelected(item.id)}>{item.latex}</button>)}</div>
           </section>
 
+          <section className="smart-writing-panel">
+            <div className="panel-title"><Type size={18} /><b>Ecriture corrigee</b></div>
+            <label className="auto-clean-toggle">
+              <input type="checkbox" checked={autoClean} onChange={(event) => setAutoClean(event.target.checked)} />
+              <span>Corriger automatiquement mes traits en belles lettres</span>
+            </label>
+            <textarea value={cleanTextInput} onChange={(event) => setCleanTextInput(event.target.value)} placeholder="Ecrivez ou corrigez le texte reconnu..." />
+            <button className="primary-btn full" onClick={insertCleanText}>Inserer en texte propre</button>
+            <button className="outline-btn full" onClick={convertAllStrokesToText}>Corriger tous les traits</button>
+            <div className="writing-hints">
+              <span>Lettres nettes</span>
+              <span>Mots corriges</span>
+              <span>Texte editable</span>
+            </div>
+          </section>
+
           <section>
             <div className="panel-title"><FunctionSquare size={18} /><b>Graphe</b></div>
             <input value={functionExpr} onChange={(event) => setFunctionExpr(event.target.value)} placeholder="x^3 - 4*x + 1" />
@@ -379,6 +503,10 @@ export default function MathWhiteboardPage() {
           <section>
             <div className="panel-title"><Shapes size={18} /><b>Objets</b></div>
             <div className="object-counter"><span>{objects.length}</span><small>elements sur le tableau</small></div>
+            <div className="object-breakdown">
+              <small>{objects.filter((item) => item.kind === 'cleanText').length} textes corriges</small>
+              <small>{objects.filter((item) => item.kind === 'stroke').length} traits bruts</small>
+            </div>
             {selected && <button className="danger-line" onClick={() => { setObjects((items) => items.filter((item) => item.id !== selected)); setSelected(null); }}>Supprimer la selection</button>}
           </section>
         </aside>
