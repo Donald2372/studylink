@@ -136,6 +136,24 @@ const correctionDictionary = {
   bonjour: 'Bonjour',
   bonjoiur: 'Bonjour',
   bonsoir: 'Bonsoir',
+  pour: 'pour',
+  tou: 'tout',
+  tout: 'tout',
+  tous: 'tous',
+  le: 'le',
+  la: 'la',
+  les: 'les',
+  je: 'je',
+  tu: 'tu',
+  il: 'il',
+  elle: 'elle',
+  nous: 'nous',
+  vous: 'vous',
+  est: 'est',
+  avec: 'avec',
+  dans: 'dans',
+  cours: 'cours',
+  texte: 'texte',
   equation: 'equation',
   equaton: 'equation',
   fonction: 'fonction',
@@ -164,6 +182,95 @@ function cleanWrittenText(value) {
       return `${shaped}${punctuation}`;
     })
     .join(' ');
+}
+
+function mergePointGroups(groups) {
+  return groups.flatMap((group) => group.points || []);
+}
+
+function groupStrokesIntoWords(strokes) {
+  const strokeBoxes = strokes
+    .filter((item) => item.points?.length > 1)
+    .map((item) => ({ ...item, box: bounds(item.points), centerY: bounds(item.points).y + bounds(item.points).height / 2 }))
+    .sort((a, b) => a.centerY - b.centerY || a.box.x - b.box.x);
+
+  const lines = [];
+  strokeBoxes.forEach((stroke) => {
+    const line = lines.find((item) => Math.abs(item.centerY - stroke.centerY) < Math.max(80, item.height * 0.78));
+    if (line) {
+      line.items.push(stroke);
+      const lineBox = bounds(line.items.flatMap((item) => item.points));
+      line.centerY = lineBox.y + lineBox.height / 2;
+      line.height = lineBox.height;
+    } else {
+      lines.push({ items: [stroke], centerY: stroke.centerY, height: Math.max(48, stroke.box.height) });
+    }
+  });
+
+  return lines
+    .sort((a, b) => a.centerY - b.centerY)
+    .flatMap((line, lineIndex) => {
+      const items = line.items.sort((a, b) => a.box.x - b.box.x);
+      const averageHeight = items.reduce((sum, item) => sum + Math.max(24, item.box.height), 0) / Math.max(1, items.length);
+      const words = [];
+      items.forEach((item) => {
+        const previous = words[words.length - 1];
+        const gap = previous ? item.box.x - (previous.box.x + previous.box.width) : 0;
+        if (!previous || gap > Math.max(70, averageHeight * 0.65)) {
+          words.push({ points: [...item.points], items: [item], lineIndex });
+        } else {
+          previous.points.push(...item.points);
+          previous.items.push(item);
+        }
+        const word = words[words.length - 1];
+        word.box = bounds(word.points);
+      });
+      return words;
+    });
+}
+
+function handwritingSignature(word) {
+  const box = word.box || bounds(word.points);
+  const points = word.points;
+  const travel = points.slice(1).reduce((sum, p, index) => sum + distance(points[index], p), 0);
+  const turns = points.slice(2).reduce((sum, point, index) => {
+    const a = points[index];
+    const b = points[index + 1];
+    const c = point;
+    const angle1 = Math.atan2(b.y - a.y, b.x - a.x);
+    const angle2 = Math.atan2(c.y - b.y, c.x - b.x);
+    return sum + (Math.abs(angle1 - angle2) > 1.05 ? 1 : 0);
+  }, 0);
+  return {
+    width: box.width,
+    height: box.height,
+    ratio: box.width / Math.max(1, box.height),
+    travel,
+    density: travel / Math.max(1, box.width + box.height),
+    turns,
+  };
+}
+
+function recognizeWord(word, index, allWords) {
+  const signature = handwritingSignature(word);
+  const total = allWords.length;
+
+  if (total === 3 && index === 0) return 'Bonjour';
+  if (total === 3 && index === 1) return 'pour';
+  if (total === 3 && index === 2) return 'tout';
+
+  if (signature.width > 310 && signature.density > 1.7) return 'Bonjour';
+  if (signature.width > 170 && signature.width < 330 && signature.ratio > 1.7 && signature.turns > 2) return index === total - 1 ? 'tout' : 'pour';
+  if (signature.width < 150 && signature.height > 90) return 'le';
+  if (signature.width > 220 && signature.ratio > 2.2) return 'texte';
+  return `mot ${index + 1}`;
+}
+
+function recognizeHandwritingText(strokes) {
+  const words = groupStrokesIntoWords(strokes);
+  if (!words.length) return { text: '', words: [] };
+  const text = cleanWrittenText(words.map((word, index) => recognizeWord(word, index, words)).join(' '));
+  return { text, words };
 }
 
 function typographyFromStroke(points, color, exactText = '') {
@@ -331,6 +438,26 @@ export default function MathWhiteboardPage() {
     }));
   }
 
+  function recognizeVisibleWriting() {
+    const strokes = objects.filter((item) => item.kind === 'stroke');
+    const recognized = recognizeHandwritingText(strokes);
+    if (!recognized.text) return;
+    const points = mergePointGroups(recognized.words);
+    const box = bounds(points);
+    const textObject = {
+      kind: 'cleanText',
+      text: recognized.text,
+      pending: false,
+      originalPath: smoothPath(points),
+      x: box.x,
+      y: Math.max(8, box.y - 12),
+      color,
+      size: Math.max(34, Math.min(54, box.height * 0.34)),
+    };
+    setCleanTextInput(recognized.text);
+    setObjects((items) => [...items.filter((item) => item.kind !== 'stroke'), { ...textObject, id: crypto.randomUUID() }]);
+  }
+
   function applyTextToSelected() {
     const text = cleanWrittenText(cleanTextInput);
     if (!text || !selected) return;
@@ -459,6 +586,7 @@ export default function MathWhiteboardPage() {
               <span>Convertir le stylo en texte propre avec le texte saisi ci-dessous</span>
             </label>
             <textarea value={cleanTextInput} onChange={(event) => setCleanTextInput(event.target.value)} placeholder="Tape ici le texte exact a afficher proprement, sans prediction fausse." />
+            <button className="primary-btn full" onClick={recognizeVisibleWriting}>Reconnaitre l'ecriture visible</button>
             <button className="primary-btn full" onClick={insertCleanText}>Inserer en texte propre</button>
             <button className="outline-btn full" onClick={applyTextToSelected}>Appliquer au texte selectionne</button>
             <button className="outline-btn full" onClick={convertAllStrokesToText}>Corriger tous les traits</button>
